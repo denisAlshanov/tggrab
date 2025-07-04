@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/tggrab/tggrab/internal/config"
-	"github.com/tggrab/tggrab/internal/utils"
+	"github.com/denisAlshanov/stPlaner/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 func AuthMiddleware(cfg *config.APIConfig) gin.HandlerFunc {

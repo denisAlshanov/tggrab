@@ -9,10 +9,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/tggrab/tggrab/internal/database"
-	"github.com/tggrab/tggrab/internal/models"
-	"github.com/tggrab/tggrab/internal/services/downloader"
-	"github.com/tggrab/tggrab/internal/utils"
+	"github.com/denisAlshanov/stPlaner/internal/database"
+	"github.com/denisAlshanov/stPlaner/internal/models"
+	"github.com/denisAlshanov/stPlaner/internal/services/downloader"
+	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 type PostHandler struct {

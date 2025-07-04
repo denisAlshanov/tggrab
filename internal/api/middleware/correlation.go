@@ -3,7 +3,7 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/tggrab/tggrab/internal/utils"
+	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 func CorrelationIDMiddleware() gin.HandlerFunc {

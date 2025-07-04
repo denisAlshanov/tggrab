@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
-	appconfig "github.com/tggrab/tggrab/internal/config"
+	appconfig "github.com/denisAlshanov/stPlaner/internal/config"
 )
 
 type S3Storage struct {

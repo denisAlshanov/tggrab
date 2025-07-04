@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tggrab/tggrab/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/config"
 )
 
 type Client struct {

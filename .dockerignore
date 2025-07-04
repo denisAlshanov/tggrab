@@ -1,6 +1,6 @@
 # Git
 .git
-../../GolandProjects/tggrab/.gitignore
+.gitignore
 
 # Documentation
 README.md

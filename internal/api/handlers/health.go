@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/tggrab/tggrab/internal/database"
-	"github.com/tggrab/tggrab/internal/services/storage"
-	"github.com/tggrab/tggrab/internal/utils"
+	"github.com/denisAlshanov/stPlaner/internal/database"
+	"github.com/denisAlshanov/stPlaner/internal/services/storage"
+	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 type HealthHandler struct {

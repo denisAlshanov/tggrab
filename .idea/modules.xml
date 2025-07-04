@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/tggraber.iml" filepath="$PROJECT_DIR$/.idea/tggraber.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/stPlaner.iml" filepath="$PROJECT_DIR$/.idea/stPlaner.iml" />
     </modules>
   </component>
 </project>

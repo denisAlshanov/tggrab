@@ -5,9 +5,9 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
-	"github.com/tggrab/tggrab/internal/api/handlers"
-	"github.com/tggrab/tggrab/internal/api/middleware"
-	"github.com/tggrab/tggrab/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/api/handlers"
+	"github.com/denisAlshanov/stPlaner/internal/api/middleware"
+	"github.com/denisAlshanov/stPlaner/internal/config"
 )
 
 type Router struct {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tggrab/tggrab/internal/config"
-	"github.com/tggrab/tggrab/internal/services/telegram"
+	"github.com/denisAlshanov/stPlaner/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/services/telegram"
 )
 
 func main() {

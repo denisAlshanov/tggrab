@@ -33,8 +33,8 @@ A Go-based microservice that automatically downloads and stores media content fr
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd tggraber
+git clone https://github.com/denisAlshanov/stPlaner
+cd stPlaner
 ```
 
 2. Install dependencies:
@@ -97,7 +97,7 @@ HOST=localhost
 
 # Database
 MONGO_URI=mongodb://localhost:27017
-MONGO_DATABASE=tggraber
+MONGO_DATABASE=stPlaner
 
 # AWS S3
 AWS_REGION=us-east-1
@@ -127,7 +127,7 @@ RATE_LIMIT_RPM=100
 
 ```bash
 # Build the application
-go build -o tggrab cmd/main.go
+go build -o stPlaner cmd/main.go
 
 # Run with race detector
 go run -race cmd/main.go
@@ -166,7 +166,7 @@ go vet ./...
 ## Project Structure
 
 ```
-tggraber/
+stPlaner/
 ├── cmd/
 │   └── main.go              # Application entry point
 ├── internal/               # Private application code
@@ -207,10 +207,10 @@ tggraber/
 
 ```bash
 # Build image
-docker build -t tggraber .
+docker build -t stPlaner .
 
 # Run container
-docker run -p 8080:8080 --env-file .env tggraber
+docker run -p 8080:8080 --env-file .env stPlaner
 ```
 
 ### AWS Deployment

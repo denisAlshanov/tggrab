@@ -17,7 +17,7 @@ This is a Telegram Media Downloader Service - a Go-based microservice that autom
 
 ### Project Initialization (if not already done)
 ```bash
-go mod init github.com/username/tggrab
+go mod init github.com/denisAlshanov/stPlaner
 ```
 
 ### Dependencies to Install
@@ -48,7 +48,7 @@ go get -u github.com/gotd/td  # MTProto client
 ### Build Commands
 ```bash
 # Build the application
-go build -o tggrab cmd/main.go
+go build -o stPlaner cmd/main.go
 
 # Run with race detector during development
 go run -race cmd/main.go
@@ -93,7 +93,7 @@ go vet ./...
 The recommended Go project structure for this service:
 
 ```
-tggrab/
+stPlaner/
 ├── cmd/
 │   └── main.go              # Application entry point
 ├── internal/               # Private application code

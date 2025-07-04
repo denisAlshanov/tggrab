@@ -1,4 +1,4 @@
-module github.com/tggrab/tggrab
+module github.com/denisAlshanov/stPlaner
 
 go 1.23.3
 

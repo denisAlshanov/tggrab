@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 
-	"github.com/tggrab/tggrab/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/config"
 )
 
 // NewStorage creates S3 storage

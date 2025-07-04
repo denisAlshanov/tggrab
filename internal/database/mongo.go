@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
-	"github.com/tggrab/tggrab/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/config"
 )
 
 type MongoDB struct {

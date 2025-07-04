@@ -29,15 +29,15 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/tggrab/tggrab/docs" // Import for swagger docs
-	"github.com/tggrab/tggrab/internal/api/handlers"
-	"github.com/tggrab/tggrab/internal/api/router"
-	"github.com/tggrab/tggrab/internal/config"
-	"github.com/tggrab/tggrab/internal/database"
-	"github.com/tggrab/tggrab/internal/services/downloader"
-	"github.com/tggrab/tggrab/internal/services/storage"
-	"github.com/tggrab/tggrab/internal/services/telegram"
-	"github.com/tggrab/tggrab/internal/utils"
+	_ "github.com/denisAlshanov/stPlaner/docs" // Import for swagger docs
+	"github.com/denisAlshanov/stPlaner/internal/api/handlers"
+	"github.com/denisAlshanov/stPlaner/internal/api/router"
+	"github.com/denisAlshanov/stPlaner/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/database"
+	"github.com/denisAlshanov/stPlaner/internal/services/downloader"
+	"github.com/denisAlshanov/stPlaner/internal/services/storage"
+	"github.com/denisAlshanov/stPlaner/internal/services/telegram"
+	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 func main() {

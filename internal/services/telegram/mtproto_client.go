@@ -13,7 +13,7 @@ import (
 	"github.com/gotd/td/telegram/downloader"
 	"github.com/gotd/td/tg"
 
-	"github.com/tggrab/tggrab/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/config"
 )
 
 // MTProtoClient implements Telegram client using MTProto protocol
