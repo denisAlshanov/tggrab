@@ -39,18 +39,19 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// API endpoints with authentication and rate limiting
-	api := engine.Group("/")
+	api := engine.Group("/api/v1")
 	api.Use(middleware.AuthMiddleware(&cfg.API))
 	api.Use(middleware.RateLimitMiddleware(&cfg.API))
 	{
-		// Post endpoints
-		api.POST("/add", postHandler.AddPost)
-		api.GET("/getList", postHandler.GetList)
-
 		// Media endpoints
-		api.POST("/getLinkList", mediaHandler.GetLinkList)
-		api.POST("/getLinkMedia", mediaHandler.GetLinkMedia)
-		api.POST("/getLinkMediaURI", mediaHandler.GetLinkMediaURI)
+		media := api.Group("/media")
+		{
+			media.POST("/grab", postHandler.AddPost)           // /api/v1/media/grab
+			media.GET("/list", postHandler.GetList)            // /api/v1/media/list
+			media.POST("/links", mediaHandler.GetLinkList)     // /api/v1/media/links
+			media.POST("/get", mediaHandler.GetLinkMedia)      // /api/v1/media/get
+			media.POST("/getDirect", mediaHandler.GetLinkMediaURI) // /api/v1/media/getDirect
+		}
 	}
 
 	return &Router{

@@ -43,7 +43,7 @@ func NewMediaHandler(db *database.PostgresDB, storage storage.StorageInterface, 
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /getLinkList [post]
+// @Router /api/v1/media/links [post]
 // @Security ApiKeyAuth
 func (h *MediaHandler) GetLinkList(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -120,7 +120,7 @@ func (h *MediaHandler) GetLinkList(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Failure 416 {object} map[string]interface{} "Range Not Satisfiable"
 // @Failure 500 {object} map[string]interface{}
-// @Router /getLinkMedia [post]
+// @Router /api/v1/media/get [post]
 // @Security ApiKeyAuth
 func (h *MediaHandler) GetLinkMedia(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -365,7 +365,7 @@ func (h *MediaHandler) handleRangeRequest(c *gin.Context, ctx context.Context, m
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /getLinkMediaURI [post]
+// @Router /api/v1/media/getDirect [post]
 // @Security ApiKeyAuth
 func (h *MediaHandler) GetLinkMediaURI(c *gin.Context) {
 	ctx := c.Request.Context()

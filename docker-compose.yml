@@ -55,13 +55,9 @@ services:
       
       # Storage (Mock for development)
       AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: _
-      AWS_SECRET_ACCESS_KEY: _
       S3_BUCKET_NAME: zing-ue1-prod-test
       
       # Telegram
-      TELEGRAM_API_ID: _
-      TELEGRAM_API_HASH: _
       TELEGRAM_SESSION_FILE: /app/data/session.db
       
       # API

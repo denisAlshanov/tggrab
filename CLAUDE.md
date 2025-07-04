@@ -128,30 +128,14 @@ stPlaner/
 
 ## API Endpoints Overview
 
-The service implements these main endpoint groups:
+The service implements these main endpoints under `/api/v1`:
 
-### Stream Management
-1. `POST /streams/create` - Create new stream plan
-2. `GET /streams/list` - List all planned streams
-3. `GET /streams/{id}` - Get specific stream details
-4. `PUT /streams/{id}` - Update stream plan
-5. `DELETE /streams/{id}` - Delete stream plan
-
-### Template Management
-1. `POST /templates/create` - Create reusable stream template
-2. `GET /templates/list` - List available templates
-3. `GET /templates/{id}` - Get template details
-4. `PUT /templates/{id}` - Update template
-5. `DELETE /templates/{id}` - Delete template
-
-### Calendar & Scheduling
-1. `GET /calendar/week` - Get weekly calendar view
-2. `GET /calendar/month` - Get monthly calendar view
-3. `POST /calendar/schedule` - Schedule recurring streams
-
-### Analytics & Reports
-1. `GET /analytics/stream/{id}` - Get stream performance data
-2. `GET /reports/monthly` - Generate monthly streaming report
+### Media Management
+1. `POST /api/v1/media/grab` - Add new Telegram post for processing
+2. `GET /api/v1/media/list` - Retrieve list of processed posts
+3. `POST /api/v1/media/links` - Get media files from specific post
+4. `POST /api/v1/media/get` - Download specific media file (supports range requests)
+5. `POST /api/v1/media/getDirect` - Get S3 pre-signed URL for direct access
 
 ## Database Collections
 

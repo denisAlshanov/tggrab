@@ -67,15 +67,11 @@ docker-compose up -d
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/streams/create` | Create a new stream plan |
-| GET | `/streams/list` | Retrieve list of planned streams |
-| GET | `/streams/{id}` | Get specific stream details |
-| PUT | `/streams/{id}` | Update stream plan |
-| DELETE | `/streams/{id}` | Delete stream plan |
-| POST | `/templates/create` | Create stream template |
-| GET | `/templates/list` | List available templates |
-| GET | `/calendar/week` | Get weekly stream calendar |
-| GET | `/calendar/month` | Get monthly stream calendar |
+| POST | `/api/v1/media/grab` | Add new Telegram post for processing |
+| GET | `/api/v1/media/list` | Retrieve list of processed posts |
+| POST | `/api/v1/media/links` | Get media files from specific post |
+| POST | `/api/v1/media/get` | Download specific media file |
+| POST | `/api/v1/media/getDirect` | Get S3 pre-signed URL |
 
 ### Stream Planning Features
 

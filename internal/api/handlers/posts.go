@@ -28,7 +28,7 @@ func NewPostHandler(db *database.PostgresDB, downloader *downloader.Downloader) 
 // AddPost godoc
 // @Summary Add a new Telegram post for processing
 // @Description Add a new Telegram post link to download media
-// @Tags posts
+// @Tags media
 // @Accept json
 // @Produce json
 // @Param request body models.AddPostRequest true "Post link"
@@ -37,7 +37,7 @@ func NewPostHandler(db *database.PostgresDB, downloader *downloader.Downloader) 
 // @Failure 400 {object} map[string]interface{}
 // @Failure 409 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Router /add [post]
+// @Router /api/v1/media/grab [post]
 // @Security ApiKeyAuth
 func (h *PostHandler) AddPost(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -81,7 +81,7 @@ func (h *PostHandler) AddPost(c *gin.Context) {
 // GetList godoc
 // @Summary Get list of processed posts
 // @Description Retrieve list of all previously processed Telegram links
-// @Tags posts
+// @Tags media
 // @Accept json
 // @Produce json
 // @Param page query int false "Page number" default(1)
@@ -89,7 +89,7 @@ func (h *PostHandler) AddPost(c *gin.Context) {
 // @Param sort query string false "Sort order" Enums(created_at_desc, created_at_asc)
 // @Success 200 {object} models.PostListResponse
 // @Failure 500 {object} map[string]interface{}
-// @Router /getList [get]
+// @Router /api/v1/media/list [get]
 // @Security ApiKeyAuth
 func (h *PostHandler) GetList(c *gin.Context) {
 	ctx := c.Request.Context()
