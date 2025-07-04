@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Telegram Media Downloader Service - a Go-based microservice that automatically downloads and stores media content from Telegram posts. The service provides a RESTful API for managing Telegram post links, downloading associated media files, and serving them to users on demand.
+St. Planer is a YouTube Stream Planner - a Go-based microservice for planning, scheduling, and managing YouTube live streams. The service provides a RESTful API that helps content creators organize their streaming schedule, plan content segments, and manage their streaming workflow efficiently.
 
 ## Key Architecture Components
 
 - **API Framework**: Gin (with Swagger/OpenAPI 3.0 documentation)
-- **Database**: MongoDB for metadata storage
-- **Object Storage**: AWS S3 for media files
-- **Telegram Integration**: MTProto User API using gotd/td library for real media downloads
+- **Database**: MongoDB for stream schedules and metadata
+- **Object Storage**: AWS S3 for thumbnails and stream assets
+- **YouTube Integration**: YouTube Data API v3 for stream management
+- **Authentication**: JWT tokens with API key support
 
 ## Common Development Commands
 
@@ -41,8 +42,12 @@ go get -u github.com/swaggo/echo-swagger # if using Echo
 # Environment variables
 go get github.com/joho/godotenv
 
-# Telegram client (choose based on approach)
-go get -u github.com/gotd/td  # MTProto client
+# YouTube API client
+go get google.golang.org/api/youtube/v3
+go get golang.org/x/oauth2/google
+
+# JWT
+go get github.com/golang-jwt/jwt/v5
 ```
 
 ### Build Commands
@@ -103,11 +108,11 @@ stPlaner/
 │   │   └── router/        # Route definitions
 │   ├── config/            # Configuration management
 │   ├── database/          # MongoDB connection and operations
-│   ├── models/            # Data models (Post, Media)
+│   ├── models/            # Data models (Stream, Template, User)
 │   ├── services/          # Business logic
-│   │   ├── downloader/    # Telegram media download logic
+│   │   ├── scheduler/     # Stream scheduling logic
 │   │   ├── storage/       # S3 operations
-│   │   └── telegram/      # Telegram client wrapper
+│   │   └── youtube/       # YouTube API integration
 │   └── utils/             # Utility functions
 ├── pkg/                    # Public packages (if any)
 ├── docs/                   # Swagger generated documentation
@@ -122,42 +127,49 @@ stPlaner/
 
 ## API Endpoints Overview
 
-The service implements 5 main endpoints:
+The service implements these main endpoint groups:
 
-1. `POST /add` - Add new Telegram post for processing
-2. `GET /getList` - Retrieve list of processed posts
-3. `POST /getLinkList` - Get media files from specific post
-4. `POST /getLinkMedia` - Download specific media file (supports range requests for video streaming)
-5. `POST /getLinkMediaURI` - Get S3 pre-signed URL
+### Stream Management
+1. `POST /streams/create` - Create new stream plan
+2. `GET /streams/list` - List all planned streams
+3. `GET /streams/{id}` - Get specific stream details
+4. `PUT /streams/{id}` - Update stream plan
+5. `DELETE /streams/{id}` - Delete stream plan
 
-### Video Processing & Streaming Support
+### Template Management
+1. `POST /templates/create` - Create reusable stream template
+2. `GET /templates/list` - List available templates
+3. `GET /templates/{id}` - Get template details
+4. `PUT /templates/{id}` - Update template
+5. `DELETE /templates/{id}` - Delete template
 
-The service includes comprehensive video handling:
+### Calendar & Scheduling
+1. `GET /calendar/week` - Get weekly calendar view
+2. `GET /calendar/month` - Get monthly calendar view
+3. `POST /calendar/schedule` - Schedule recurring streams
 
-#### Video Detection:
-- **MIME Type Recognition**: Detects `video/*` content types
-- **File Extension Analysis**: Supports .mp4, .avi, .mov, .mkv, .webm, .flv, .m4v, .3gp, .gif
-- **Telegram Attributes**: Uses `DocumentAttributeVideo` and `DocumentAttributeAnimated`
-- **Multi-Pattern Matching**: Web scraper detects videos from multiple HTML patterns
-
-#### Video Streaming:
-- **Range Requests**: Supports HTTP range headers for partial content delivery
-- **Adaptive Streaming**: Optimized for video players and seeking
-- **Progressive Loading**: Start playback before full download
-- **Cache Headers**: Proper caching for video content
-- **Content-Length Accuracy**: Uses S3 metadata for precise file sizes
+### Analytics & Reports
+1. `GET /analytics/stream/{id}` - Get stream performance data
+2. `GET /reports/monthly` - Generate monthly streaming report
 
 ## Database Collections
 
-### posts Collection
-- Stores Telegram post metadata
-- Tracks processing status
-- Contains deduplication information
+### streams Collection
+- Stores stream planning data
+- Schedule information (date, time, duration)
+- Content segments with timestamps
+- Status tracking (planned, live, completed)
 
-### media Collection
-- Stores individual media file information
-- Maps to S3 storage locations
-- Contains file metadata (size, type, hash)
+### templates Collection
+- Reusable stream templates
+- Default segments and timing
+- Category and tag organization
+
+### users Collection
+- User profiles and preferences
+- Authentication credentials
+- Time zone settings
+- Notification preferences
 
 ## Environment Configuration
 
@@ -165,39 +177,47 @@ Key environment variables needed:
 - Server configuration (PORT, HOST)
 - MongoDB connection (MONGO_URI, MONGO_DATABASE)
 - AWS S3 credentials and bucket
-- Telegram API credentials (TELEGRAM_API_ID, TELEGRAM_API_HASH)
-- Authentication settings
+- YouTube API credentials (YOUTUBE_API_KEY, YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET)
+- JWT settings (JWT_SECRET, JWT_EXPIRY)
 - Rate limiting parameters
 
-### Telegram Integration
-The service uses Telegram's web scraper for real media downloads from public channels. To enable:
-1. Get API credentials from https://my.telegram.org
-2. Set TELEGRAM_API_ID and TELEGRAM_API_HASH in environment
-3. No authentication required - works immediately
-4. Downloads real media files from public Telegram channels
+### YouTube Integration
+The service uses YouTube Data API v3 for:
+1. Creating and scheduling live broadcasts
+2. Updating stream metadata
+3. Retrieving analytics data
+4. Managing stream thumbnails
+
+To enable:
+1. Create a project in Google Cloud Console
+2. Enable YouTube Data API v3
+3. Create OAuth 2.0 credentials
+4. Set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET in environment
 
 ## Development Workflow
 
-1. Check for existing media before downloading (deduplication)
-2. Use structured logging with correlation IDs
-3. Implement proper error handling with custom error codes
-4. Follow S3 key structure: `channel_name/post_id/filename`
-5. Use MongoDB transactions for consistency
-6. Implement retry logic for Telegram API calls
-7. Generate Swagger docs after API changes
+1. Use structured logging with correlation IDs
+2. Implement proper error handling with custom error codes
+3. Follow RESTful API design principles
+4. Use MongoDB transactions for data consistency
+5. Implement caching for frequently accessed data
+6. Generate Swagger docs after API changes
+7. Write unit tests for all service methods
 
 ## Testing Guidelines
 
-- Test error scenarios thoroughly
-- Include integration tests for API endpoints  
-- Performance test with large media files
-- Test rate limiting and authentication
-- Use real S3 storage for testing
+- Test all API endpoints with different scenarios
+- Include integration tests for YouTube API  
+- Test scheduling logic with various time zones
+- Performance test with multiple concurrent streams
+- Test template application and customization
+- Use mock YouTube API for unit tests
 
 ## Important Considerations
 
-1. **Rate Limiting**: Telegram has strict rate limits - implement proper backoff strategies
-2. **Storage Costs**: Monitor S3 usage and implement lifecycle policies
-3. **Security**: Never expose S3 credentials, use pre-signed URLs with expiration
-4. **Scalability**: Design for horizontal scaling with proper connection pooling
-5. **Monitoring**: Implement health checks and comprehensive logging
+1. **Rate Limiting**: YouTube API has quotas - implement proper quota management
+2. **Time Zones**: Handle time zone conversions correctly for global users
+3. **Notifications**: Implement reliable notification system for stream reminders
+4. **Scalability**: Design for multiple users with concurrent streams
+5. **Monitoring**: Track API usage and stream success rates
+6. **Data Privacy**: Secure user credentials and streaming data

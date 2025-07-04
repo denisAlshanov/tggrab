@@ -1,7 +1,7 @@
-// Package main provides the entry point for the Telegram Media Grabber service.
-// @title Telegram Media Grabber API
+// Package main provides the entry point for the St. Planer YouTube Stream Planning service.
+// @title St. Planer - YouTube Stream Planner API
 // @version 1.0
-// @description A Go-based microservice that automatically downloads and stores media content from Telegram posts.
+// @description A Go-based microservice for planning and scheduling YouTube live streams. Helps content creators organize their streaming schedule and manage content.
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support

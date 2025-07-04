@@ -1,23 +1,23 @@
-# Telegram Media Downloader Service
+# St. Planer - YouTube Stream Planner
 
-A Go-based microservice that automatically downloads and stores media content from Telegram posts. The service provides a RESTful API for managing Telegram post links, downloading associated media files, and serving them to users on demand.
+A Go-based microservice for planning and scheduling YouTube live streams. St. Planer provides a RESTful API for managing stream schedules, planning content, and organizing streaming workflows for content creators.
 
 ## Features
 
-- **Automated Media Download**: Download media from Telegram posts using MTProto API
-- **RESTful API**: Clean API endpoints for post management and media access
-- **Video Streaming**: Support for HTTP range requests and progressive video playback
-- **Cloud Storage**: AWS S3 integration for scalable media storage
-- **Deduplication**: Intelligent content deduplication to save storage space
-- **Rate Limiting**: Built-in protection against API abuse
+- **Stream Scheduling**: Plan and schedule YouTube live streams in advance
+- **Content Planning**: Organize stream topics, segments, and timing
+- **Calendar Integration**: View and manage streaming schedule
+- **Template Management**: Create reusable stream templates
+- **Notification System**: Get reminders for upcoming streams
+- **Analytics Integration**: Track stream performance and viewer engagement
 - **Swagger Documentation**: Auto-generated API documentation
 
 ## Architecture
 
 - **Backend**: Go with Gin web framework
-- **Database**: MongoDB for metadata storage
-- **Storage**: AWS S3 for media files
-- **Telegram Integration**: MTProto User API via gotd/td library
+- **Database**: MongoDB for stream data and schedules
+- **Storage**: AWS S3 for stream assets and thumbnails
+- **YouTube Integration**: YouTube Data API v3
 - **Documentation**: Swagger/OpenAPI 3.0
 
 ## Quick Start
@@ -27,7 +27,7 @@ A Go-based microservice that automatically downloads and stores media content fr
 - Go 1.19+
 - MongoDB
 - AWS S3 bucket
-- Telegram API credentials
+- YouTube API credentials
 
 ### Installation
 
@@ -67,20 +67,24 @@ docker-compose up -d
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/add` | Add new Telegram post for processing |
-| GET | `/getList` | Retrieve list of processed posts |
-| POST | `/getLinkList` | Get media files from specific post |
-| POST | `/getLinkMedia` | Download specific media file |
-| POST | `/getLinkMediaURI` | Get S3 pre-signed URL |
+| POST | `/streams/create` | Create a new stream plan |
+| GET | `/streams/list` | Retrieve list of planned streams |
+| GET | `/streams/{id}` | Get specific stream details |
+| PUT | `/streams/{id}` | Update stream plan |
+| DELETE | `/streams/{id}` | Delete stream plan |
+| POST | `/templates/create` | Create stream template |
+| GET | `/templates/list` | List available templates |
+| GET | `/calendar/week` | Get weekly stream calendar |
+| GET | `/calendar/month` | Get monthly stream calendar |
 
-### Video Streaming
+### Stream Planning Features
 
-The service supports advanced video streaming capabilities:
+The service supports comprehensive stream planning:
 
-- **Range Requests**: HTTP range headers for partial content delivery
-- **Progressive Loading**: Start playback before full download
-- **Multiple Formats**: Support for .mp4, .avi, .mov, .mkv, .webm, .flv, .m4v, .3gp, .gif
-- **Adaptive Streaming**: Optimized for video players and seeking
+- **Time Zones**: Support for multiple time zones
+- **Recurring Streams**: Set up weekly/monthly recurring streams
+- **Content Segments**: Plan stream segments with timestamps
+- **Collaboration**: Share stream plans with team members
 
 ### API Documentation
 
@@ -105,21 +109,23 @@ AWS_S3_BUCKET=your-bucket-name
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 
-# Telegram API
-TELEGRAM_API_ID=your-api-id
-TELEGRAM_API_HASH=your-api-hash
+# YouTube API
+YOUTUBE_API_KEY=your-api-key
+YOUTUBE_CLIENT_ID=your-client-id
+YOUTUBE_CLIENT_SECRET=your-client-secret
 
 # Authentication & Rate Limiting
 API_KEY=your-api-key
 RATE_LIMIT_RPM=100
 ```
 
-### Telegram API Setup
+### YouTube API Setup
 
-1. Visit https://my.telegram.org
-2. Create a new application
-3. Get your API ID and API Hash
-4. Add them to your environment configuration
+1. Visit [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable YouTube Data API v3
+4. Create credentials (OAuth 2.0 Client ID)
+5. Add credentials to your environment configuration
 
 ## Development
 
@@ -178,9 +184,9 @@ stPlaner/
 │   ├── database/          # MongoDB operations
 │   ├── models/            # Data models
 │   ├── services/          # Business logic
-│   │   ├── downloader/    # Media download logic
+│   │   ├── scheduler/     # Stream scheduling logic
 │   │   ├── storage/       # S3 operations
-│   │   └── telegram/      # Telegram client
+│   │   └── youtube/       # YouTube API client
 │   └── utils/             # Utility functions
 ├── docs/                   # Swagger documentation
 ├── scripts/                # Build and deployment scripts
@@ -191,15 +197,20 @@ stPlaner/
 
 ## Database Schema
 
-### Posts Collection
-- Stores Telegram post metadata
-- Tracks processing status
-- Contains deduplication information
+### Streams Collection
+- Stores stream planning data
+- Schedule information
+- Content segments and timing
 
-### Media Collection
-- Individual media file information
-- Maps to S3 storage locations
-- Contains file metadata (size, type, hash)
+### Templates Collection
+- Reusable stream templates
+- Default settings and segments
+- Category organization
+
+### Users Collection
+- User profiles and preferences
+- Authentication data
+- Time zone settings
 
 ## Deployment
 
@@ -213,28 +224,28 @@ docker build -t stPlaner .
 docker run -p 8080:8080 --env-file .env stPlaner
 ```
 
-### AWS Deployment
+### Cloud Deployment
 
-The service is designed to run on AWS with:
-- ECS/EKS for container orchestration
-- RDS or MongoDB Atlas for database
-- S3 for media storage
-- CloudFront for CDN (optional)
+The service is designed to run on:
+- AWS ECS/EKS for container orchestration
+- Google Cloud Run for serverless deployment
+- MongoDB Atlas for managed database
+- S3 for asset storage
 
 ## Monitoring & Health Checks
 
 - Health check endpoint: `GET /health`
 - Structured logging with correlation IDs
 - Prometheus metrics (configurable)
-- AWS CloudWatch integration
+- Cloud monitoring integration
 
 ## Security Considerations
 
 - API key authentication
+- OAuth 2.0 for YouTube integration
 - Rate limiting protection
-- S3 pre-signed URLs with expiration
 - Input validation and sanitization
-- No sensitive data in logs
+- Secure credential storage
 
 ## Contributing
 
