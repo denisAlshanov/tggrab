@@ -1,0 +1,416 @@
+basePath: /
+definitions:
+  handlers.HealthResponse:
+    properties:
+      services:
+        additionalProperties:
+          $ref: '#/definitions/handlers.ServiceHealth'
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
+    type: object
+  handlers.ServiceHealth:
+    properties:
+      error:
+        type: string
+      response_time:
+        type: string
+      status:
+        type: string
+    type: object
+  models.AddPostRequest:
+    properties:
+      link:
+        type: string
+    required:
+    - link
+    type: object
+  models.AddPostResponse:
+    properties:
+      media_count:
+        type: integer
+      message:
+        type: string
+      post_id:
+        type: string
+      processing_status:
+        $ref: '#/definitions/models.PostStatus'
+      status:
+        type: string
+    type: object
+  models.GetLinkListRequest:
+    properties:
+      link:
+        type: string
+    required:
+    - link
+    type: object
+  models.GetLinkMediaRequest:
+    properties:
+      link:
+        type: string
+      media_id:
+        type: string
+    required:
+    - link
+    - media_id
+    type: object
+  models.GetLinkMediaURIRequest:
+    properties:
+      expiry_minutes:
+        type: integer
+      link:
+        type: string
+      media_id:
+        type: string
+    required:
+    - link
+    - media_id
+    type: object
+  models.GetLinkMediaURIResponse:
+    properties:
+      expires_at:
+        type: string
+      media_id:
+        type: string
+      s3_url:
+        type: string
+    type: object
+  models.MediaListItem:
+    properties:
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      file_type:
+        type: string
+      media_id:
+        type: string
+      upload_date:
+        type: string
+    type: object
+  models.MediaListResponse:
+    properties:
+      link:
+        type: string
+      media_files:
+        items:
+          $ref: '#/definitions/models.MediaListItem'
+        type: array
+      post_id:
+        type: string
+    type: object
+  models.PostListItem:
+    properties:
+      added_at:
+        type: string
+      link:
+        type: string
+      media_count:
+        type: integer
+      post_id:
+        type: string
+      status:
+        $ref: '#/definitions/models.PostStatus'
+    type: object
+  models.PostListResponse:
+    properties:
+      limit:
+        type: integer
+      links:
+        items:
+          $ref: '#/definitions/models.PostListItem'
+        type: array
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.PostStatus:
+    enum:
+    - pending
+    - processing
+    - completed
+    - failed
+    type: string
+    x-enum-varnames:
+    - PostStatusPending
+    - PostStatusProcessing
+    - PostStatusCompleted
+    - PostStatusFailed
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: http://www.example.com/support
+  description: A Go-based microservice that automatically downloads and stores media
+    content from Telegram posts.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Telegram Media Grabber API
+  version: "1.0"
+paths:
+  /add:
+    post:
+      consumes:
+      - application/json
+      description: Add a new Telegram post link to download media
+      parameters:
+      - description: Post link
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddPostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AddPostResponse'
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/models.AddPostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Add a new Telegram post for processing
+      tags:
+      - posts
+  /getLinkList:
+    post:
+      consumes:
+      - application/json
+      description: Get list of all media files from a specific Telegram post
+      parameters:
+      - description: Post link
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.GetLinkListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.MediaListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get media files from a specific post
+      tags:
+      - media
+  /getLinkMedia:
+    post:
+      consumes:
+      - application/json
+      description: Download specific media file from a post as binary stream
+      parameters:
+      - description: Media download request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.GetLinkMediaRequest'
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: File download
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Download specific media file
+      tags:
+      - media
+  /getLinkMediaURI:
+    post:
+      consumes:
+      - application/json
+      description: Get direct S3 link for specific media with configurable expiration
+      parameters:
+      - description: Media URI request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.GetLinkMediaURIRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetLinkMediaURIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get S3 pre-signed URL for media
+      tags:
+      - media
+  /getList:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve list of all previously processed Telegram links
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Sort order
+        enum:
+        - created_at_desc
+        - created_at_asc
+        in: query
+        name: sort
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PostListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get list of processed posts
+      tags:
+      - posts
+  /health:
+    get:
+      description: Check the health of the service and its dependencies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Health check endpoint
+      tags:
+      - health
+  /live:
+    get:
+      description: Check if the service is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Liveness check endpoint
+      tags:
+      - health
+  /ready:
+    get:
+      description: Check if the service is ready to accept requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Readiness check endpoint
+      tags:
+      - health
+securityDefinitions:
+  ApiKeyAuth:
+    description: API key authentication
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"

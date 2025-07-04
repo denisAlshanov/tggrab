@@ -1,0 +1,47 @@
+# Git
+.git
+../../GolandProjects/tggrab/.gitignore
+
+# Documentation
+README.md
+telegram-media-grabber-prd.md
+CLAUDE.md
+
+# Environment files
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+*_test.go
+tests/
+coverage.out
+coverage.html
+
+# Build artifacts
+main
+*.exe
+
+# Dependencies (will be downloaded in container)
+vendor/
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Session files
+session.db
+*.db

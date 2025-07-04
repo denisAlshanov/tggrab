@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: tggrab-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: telegram_media
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - tggrab-network
+
+  # Application
+  tggrab:
+    build:
+      context: ../../GolandProjects/tggrab
+      dockerfile: Dockerfile
+    container_name: tggrab-app
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      # Server
+      SERVER_PORT: 8080
+      SERVER_HOST: 0.0.0.0
+      
+      # MongoDB
+      MONGO_URI: mongodb://admin:password@mongodb:27017/telegram_media?authSource=admin
+      MONGO_DATABASE: telegram_media
+      MONGO_TIMEOUT: 10s
+      
+      # Storage (Mock for development)
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: _
+      AWS_SECRET_ACCESS_KEY: _
+      S3_BUCKET_NAME: zing-ue1-prod-test
+      
+      # Telegram
+      TELEGRAM_API_ID: _
+      TELEGRAM_API_HASH: _
+      TELEGRAM_SESSION_FILE: /app/data/session.db
+      
+      # API
+      API_KEY: dev-api-key-change-in-production
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW: 1m
+      
+      # Download
+      MAX_CONCURRENT_DOWNLOADS: 5
+      DOWNLOAD_TIMEOUT: 300s
+      MAX_FILE_SIZE: 2147483648
+      
+      # Logging
+      LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+    volumes:
+      - app_data:/app/data
+    networks:
+      - tggrab-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mongodb_data:
+    driver: local
+  app_data:
+    driver: local
+
+networks:
+  tggrab-network:
+    driver: bridge
