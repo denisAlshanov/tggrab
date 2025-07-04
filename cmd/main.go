@@ -27,7 +27,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	_ "github.com/denisAlshanov/stPlaner/docs" // Import for swagger docs
 	"github.com/denisAlshanov/stPlaner/internal/api/handlers"
@@ -48,12 +47,12 @@ func main() {
 	}
 
 	logger := utils.GetLogger()
-	logger.Info("Starting Telegram Media Grabber service")
+	logger.Info("Starting St. Planer - YouTube Stream Planner service")
 
 	// Initialize database
-	db, err := database.NewMongoDB(&cfg.MongoDB)
+	db, err := database.NewPostgresDB(&cfg.Postgres)
 	if err != nil {
-		logger.Fatalf("Failed to connect to MongoDB: %v", err)
+		logger.Fatalf("Failed to connect to PostgreSQL: %v", err)
 	}
 
 	// Initialize S3 storage
@@ -103,14 +102,8 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	// Create a deadline for shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	// Close database connection
-	if err := db.Close(ctx); err != nil {
-		logger.Errorf("Failed to close database connection: %v", err)
-	}
+	db.Close()
 
 	// Close Telegram client
 	if err := telegramClient.Close(); err != nil {
