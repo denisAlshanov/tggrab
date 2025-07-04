@@ -15,7 +15,7 @@ A Go-based microservice for planning and scheduling YouTube live streams. St. Pl
 ## Architecture
 
 - **Backend**: Go with Gin web framework
-- **Database**: MongoDB for stream data and schedules
+- **Database**: PostgreSQL for stream data and schedules
 - **Storage**: AWS S3 for stream assets and thumbnails
 - **YouTube Integration**: YouTube Data API v3
 - **Documentation**: Swagger/OpenAPI 3.0
@@ -25,7 +25,7 @@ A Go-based microservice for planning and scheduling YouTube live streams. St. Pl
 ### Prerequisites
 
 - Go 1.19+
-- MongoDB
+- PostgreSQL
 - AWS S3 bucket
 - YouTube API credentials
 
@@ -100,8 +100,12 @@ PORT=8080
 HOST=localhost
 
 # Database
-MONGO_URI=mongodb://localhost:27017
-MONGO_DATABASE=stPlaner
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=stplaner
+POSTGRES_PASSWORD=stplaner_password
+POSTGRES_DATABASE=stplaner
+POSTGRES_SSLMODE=disable
 
 # AWS S3
 AWS_REGION=us-east-1
@@ -197,17 +201,17 @@ stPlaner/
 
 ## Database Schema
 
-### Streams Collection
+### streams Table
 - Stores stream planning data
 - Schedule information
 - Content segments and timing
 
-### Templates Collection
+### templates Table
 - Reusable stream templates
 - Default settings and segments
 - Category organization
 
-### Users Collection
+### users Table
 - User profiles and preferences
 - Authentication data
 - Time zone settings
@@ -229,7 +233,7 @@ docker run -p 8080:8080 --env-file .env stPlaner
 The service is designed to run on:
 - AWS ECS/EKS for container orchestration
 - Google Cloud Run for serverless deployment
-- MongoDB Atlas for managed database
+- PostgreSQL (managed or self-hosted)
 - S3 for asset storage
 
 ## Monitoring & Health Checks

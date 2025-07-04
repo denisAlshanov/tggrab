@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	Server   ServerConfig
-	MongoDB  MongoDBConfig
+	Postgres PostgresConfig
 	S3       S3Config
 	Telegram TelegramConfig
 	API      APIConfig
@@ -23,9 +23,13 @@ type ServerConfig struct {
 	Host string
 }
 
-type MongoDBConfig struct {
-	URI      string
+type PostgresConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
 	Database string
+	SSLMode  string
 	Timeout  time.Duration
 }
 
@@ -67,14 +71,18 @@ func Load() (*Config, error) {
 	cfg.Server.Port = getEnv("SERVER_PORT", "8080")
 	cfg.Server.Host = getEnv("SERVER_HOST", "0.0.0.0")
 
-	// MongoDB configuration
-	cfg.MongoDB.URI = getEnvRequired("MONGO_URI")
-	cfg.MongoDB.Database = getEnv("MONGO_DATABASE", "telegram_media")
-	mongoTimeout, err := time.ParseDuration(getEnv("MONGO_TIMEOUT", "10s"))
+	// PostgreSQL configuration
+	cfg.Postgres.Host = getEnv("POSTGRES_HOST", "localhost")
+	cfg.Postgres.Port = getEnvInt("POSTGRES_PORT", 5432)
+	cfg.Postgres.User = getEnvRequired("POSTGRES_USER")
+	cfg.Postgres.Password = getEnvRequired("POSTGRES_PASSWORD")
+	cfg.Postgres.Database = getEnv("POSTGRES_DATABASE", "stplaner")
+	cfg.Postgres.SSLMode = getEnv("POSTGRES_SSLMODE", "disable")
+	pgTimeout, err := time.ParseDuration(getEnv("POSTGRES_TIMEOUT", "10s"))
 	if err != nil {
-		return nil, fmt.Errorf("invalid MONGO_TIMEOUT: %w", err)
+		return nil, fmt.Errorf("invalid POSTGRES_TIMEOUT: %w", err)
 	}
-	cfg.MongoDB.Timeout = mongoTimeout
+	cfg.Postgres.Timeout = pgTimeout
 
 	// S3 configuration
 	cfg.S3.Region = getEnv("AWS_REGION", "us-east-1")

@@ -9,7 +9,7 @@ St. Planer is a YouTube Stream Planner - a Go-based microservice for planning, s
 ## Key Architecture Components
 
 - **API Framework**: Gin (with Swagger/OpenAPI 3.0 documentation)
-- **Database**: MongoDB for stream schedules and metadata
+- **Database**: PostgreSQL for stream schedules and metadata
 - **Object Storage**: AWS S3 for thumbnails and stream assets
 - **YouTube Integration**: YouTube Data API v3 for stream management
 - **Authentication**: JWT tokens with API key support
@@ -27,8 +27,9 @@ go mod init github.com/denisAlshanov/stPlaner
 go get -u github.com/gin-gonic/gin  # OR
 go get -u github.com/labstack/echo/v4
 
-# MongoDB driver
-go get go.mongodb.org/mongo-driver/mongo
+# PostgreSQL driver
+go get github.com/jackc/pgx/v5
+go get github.com/jackc/pgx/v5/pgxpool
 
 # AWS SDK
 go get github.com/aws/aws-sdk-go-v2/config
@@ -154,18 +155,18 @@ The service implements these main endpoint groups:
 
 ## Database Collections
 
-### streams Collection
+### streams Table
 - Stores stream planning data
 - Schedule information (date, time, duration)
 - Content segments with timestamps
 - Status tracking (planned, live, completed)
 
-### templates Collection
+### templates Table
 - Reusable stream templates
 - Default segments and timing
 - Category and tag organization
 
-### users Collection
+### users Table
 - User profiles and preferences
 - Authentication credentials
 - Time zone settings
@@ -175,7 +176,7 @@ The service implements these main endpoint groups:
 
 Key environment variables needed:
 - Server configuration (PORT, HOST)
-- MongoDB connection (MONGO_URI, MONGO_DATABASE)
+- PostgreSQL connection (POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE)
 - AWS S3 credentials and bucket
 - YouTube API credentials (YOUTUBE_API_KEY, YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET)
 - JWT settings (JWT_SECRET, JWT_EXPIRY)
@@ -199,7 +200,7 @@ To enable:
 1. Use structured logging with correlation IDs
 2. Implement proper error handling with custom error codes
 3. Follow RESTful API design principles
-4. Use MongoDB transactions for data consistency
+4. Use PostgreSQL transactions for data consistency
 5. Implement caching for frequently accessed data
 6. Generate Swagger docs after API changes
 7. Write unit tests for all service methods

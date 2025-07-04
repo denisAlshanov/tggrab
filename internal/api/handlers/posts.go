@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/denisAlshanov/stPlaner/internal/database"
 	"github.com/denisAlshanov/stPlaner/internal/models"
@@ -16,11 +14,11 @@ import (
 )
 
 type PostHandler struct {
-	db         *database.MongoDB
+	db         *database.PostgresDB
 	downloader *downloader.Downloader
 }
 
-func NewPostHandler(db *database.MongoDB, downloader *downloader.Downloader) *PostHandler {
+func NewPostHandler(db *database.PostgresDB, downloader *downloader.Downloader) *PostHandler {
 	return &PostHandler{
 		db:         db,
 		downloader: downloader,
@@ -108,41 +106,14 @@ func (h *PostHandler) GetList(c *gin.Context) {
 		limit = 20
 	}
 
-	// Prepare sort options
-	sortField := "created_at"
-	sortOrder := -1 // descending
-	if sort == "created_at_asc" {
-		sortOrder = 1
-	}
-
-	// Count total documents
-	total, err := h.db.Posts().CountDocuments(ctx, bson.M{})
+	// Get posts with pagination
+	posts, total, err := h.db.ListPosts(ctx, models.PaginationOptions{
+		Page:  page,
+		Limit: limit,
+		Sort:  sort,
+	})
 	if err != nil {
-		utils.LogError(ctx, "Failed to count posts", err)
-		h.errorResponse(c, utils.NewDatabaseError(err))
-		return
-	}
-
-	// Prepare find options
-	skip := (page - 1) * limit
-	findOptions := options.Find().
-		SetLimit(int64(limit)).
-		SetSkip(int64(skip)).
-		SetSort(bson.D{{Key: sortField, Value: sortOrder}})
-
-	// Find posts
-	cursor, err := h.db.Posts().Find(ctx, bson.M{}, findOptions)
-	if err != nil {
-		utils.LogError(ctx, "Failed to find posts", err)
-		h.errorResponse(c, utils.NewDatabaseError(err))
-		return
-	}
-	defer cursor.Close(ctx)
-
-	// Decode results
-	var posts []models.Post
-	if err := cursor.All(ctx, &posts); err != nil {
-		utils.LogError(ctx, "Failed to decode posts", err)
+		utils.LogError(ctx, "Failed to get posts", err)
 		h.errorResponse(c, utils.NewDatabaseError(err))
 		return
 	}

@@ -3,21 +3,21 @@ package models
 import (
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 type Post struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	PostID       string             `bson:"post_id" json:"post_id"`
-	TelegramLink string             `bson:"telegram_link" json:"telegram_link"`
-	ChannelName  string             `bson:"channel_name" json:"channel_name"`
-	MessageID    int64              `bson:"message_id" json:"message_id"`
-	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt    time.Time          `bson:"updated_at" json:"updated_at"`
-	Status       PostStatus         `bson:"status" json:"status"`
-	MediaCount   int                `bson:"media_count" json:"media_count"`
-	TotalSize    int64              `bson:"total_size" json:"total_size"`
-	ErrorMessage string             `bson:"error_message,omitempty" json:"error_message,omitempty"`
+	ID           uuid.UUID  `json:"id" db:"id"`
+	PostID       string     `json:"post_id" db:"post_id"`
+	TelegramLink string     `json:"telegram_link" db:"telegram_link"`
+	ChannelName  string     `json:"channel_name" db:"channel_name"`
+	MessageID    int64      `json:"message_id" db:"message_id"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
+	Status       PostStatus `json:"status" db:"status"`
+	MediaCount   int        `json:"media_count" db:"media_count"`
+	TotalSize    int64      `json:"total_size" db:"total_size"`
+	ErrorMessage *string    `json:"error_message,omitempty" db:"error_message"`
 }
 
 type PostStatus string
@@ -30,18 +30,18 @@ const (
 )
 
 type Media struct {
-	ID             primitive.ObjectID     `bson:"_id,omitempty" json:"id"`
-	MediaID        string                 `bson:"media_id" json:"media_id"`
-	PostID         string                 `bson:"post_id" json:"post_id"`
-	TelegramFileID string                 `bson:"telegram_file_id" json:"telegram_file_id"`
-	FileName       string                 `bson:"file_name" json:"file_name"`
-	FileType       string                 `bson:"file_type" json:"file_type"`
-	FileSize       int64                  `bson:"file_size" json:"file_size"`
-	S3Bucket       string                 `bson:"s3_bucket" json:"s3_bucket"`
-	S3Key          string                 `bson:"s3_key" json:"s3_key"`
-	FileHash       string                 `bson:"file_hash" json:"file_hash"`
-	DownloadedAt   time.Time              `bson:"downloaded_at" json:"downloaded_at"`
-	Metadata       map[string]interface{} `bson:"metadata,omitempty" json:"metadata,omitempty"`
+	ID             uuid.UUID              `json:"id" db:"id"`
+	MediaID        string                 `json:"media_id" db:"media_id"`
+	PostID         string                 `json:"post_id" db:"post_id"`
+	TelegramFileID string                 `json:"telegram_file_id" db:"telegram_file_id"`
+	FileName       string                 `json:"file_name" db:"file_name"`
+	FileType       string                 `json:"file_type" db:"file_type"`
+	FileSize       int64                  `json:"file_size" db:"file_size"`
+	S3Bucket       string                 `json:"s3_bucket" db:"s3_bucket"`
+	S3Key          string                 `json:"s3_key" db:"s3_key"`
+	FileHash       string                 `json:"file_hash" db:"file_hash"`
+	DownloadedAt   time.Time              `json:"downloaded_at" db:"downloaded_at"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
 }
 
 type PaginationOptions struct {

@@ -13,7 +13,7 @@ import (
 )
 
 type HealthHandler struct {
-	db      *database.MongoDB
+	db      *database.PostgresDB
 	storage storage.StorageInterface
 }
 
@@ -30,7 +30,7 @@ type ServiceHealth struct {
 	Error        string `json:"error,omitempty"`
 }
 
-func NewHealthHandler(db *database.MongoDB, storage storage.StorageInterface) *HealthHandler {
+func NewHealthHandler(db *database.PostgresDB, storage storage.StorageInterface) *HealthHandler {
 	return &HealthHandler{
 		db:      db,
 		storage: storage,
@@ -55,9 +55,9 @@ func (h *HealthHandler) Health(c *gin.Context) {
 		Services:  make(map[string]ServiceHealth),
 	}
 
-	// Check MongoDB
-	mongoHealth := h.checkMongoDB(ctx)
-	response.Services["mongodb"] = mongoHealth
+	// Check PostgreSQL
+	pgHealth := h.checkPostgreSQL(ctx)
+	response.Services["postgresql"] = pgHealth
 
 	// Check S3
 	s3Health := h.checkS3(ctx)
@@ -96,15 +96,15 @@ func (h *HealthHandler) Readiness(c *gin.Context) {
 	ready := true
 	checks := make(map[string]interface{})
 
-	// Check if MongoDB is accessible
+	// Check if PostgreSQL is accessible
 	if err := h.db.Ping(ctx); err != nil {
 		ready = false
-		checks["mongodb"] = map[string]interface{}{
+		checks["postgresql"] = map[string]interface{}{
 			"ready": false,
 			"error": err.Error(),
 		}
 	} else {
-		checks["mongodb"] = map[string]interface{}{
+		checks["postgresql"] = map[string]interface{}{
 			"ready": true,
 		}
 	}
@@ -137,7 +137,7 @@ func (h *HealthHandler) Liveness(c *gin.Context) {
 	})
 }
 
-func (h *HealthHandler) checkMongoDB(ctx context.Context) ServiceHealth {
+func (h *HealthHandler) checkPostgreSQL(ctx context.Context) ServiceHealth {
 	start := time.Now()
 
 	// Create a timeout context for the health check
@@ -148,7 +148,7 @@ func (h *HealthHandler) checkMongoDB(ctx context.Context) ServiceHealth {
 	responseTime := time.Since(start).String()
 
 	if err != nil {
-		utils.LogError(ctx, "MongoDB health check failed", err)
+		utils.LogError(ctx, "PostgreSQL health check failed", err)
 		return ServiceHealth{
 			Status:       "unhealthy",
 			ResponseTime: responseTime,

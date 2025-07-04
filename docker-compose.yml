@@ -1,22 +1,28 @@
 version: '3.8'
 
 services:
-  # MongoDB
-  mongodb:
-    image: mongo:7.0
-    container_name: stPlaner-mongodb
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: stPlaner-postgres
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: stplaner
+      POSTGRES_USER: stplaner
+      POSTGRES_PASSWORD: stplaner_password
+      POSTGRES_DB: stplaner
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "27017:27017"
+      - "5432:5432"
     volumes:
-      - mongodb_data:/data/db
-      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - stplaner-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stplaner -d stplaner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Application
   stplaner:
@@ -26,16 +32,20 @@ services:
     container_name: stPlaner-app
     restart: unless-stopped
     depends_on:
-      - mongodb
+      postgres:
+        condition: service_healthy
     environment:
       # Server
       SERVER_PORT: 8080
       SERVER_HOST: 0.0.0.0
       
-      # MongoDB
-      MONGO_URI: mongodb://admin:password@mongodb:27017/stplaner?authSource=admin
-      MONGO_DATABASE: stplaner
-      MONGO_TIMEOUT: 10s
+      # PostgreSQL
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: stplaner
+      POSTGRES_PASSWORD: stplaner_password
+      POSTGRES_DATABASE: stplaner
+      POSTGRES_SSLMODE: disable
       
       # Storage (Mock for development)
       AWS_REGION: us-east-1
@@ -75,7 +85,7 @@ services:
       start_period: 40s
 
 volumes:
-  mongodb_data:
+  postgres_data:
     driver: local
   app_data:
     driver: local

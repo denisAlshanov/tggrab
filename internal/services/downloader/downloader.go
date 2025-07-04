@@ -8,9 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/google/uuid"
 
 	"github.com/denisAlshanov/stPlaner/internal/config"
 	"github.com/denisAlshanov/stPlaner/internal/database"
@@ -21,7 +19,7 @@ import (
 )
 
 type Downloader struct {
-	db        *database.MongoDB
+	db        *database.PostgresDB
 	storage   storage.StorageInterface
 	telegram  telegram.TelegramClient
 	config    *config.DownloadConfig
@@ -29,7 +27,7 @@ type Downloader struct {
 	mu        sync.Mutex
 }
 
-func NewDownloader(db *database.MongoDB, storage storage.StorageInterface, telegram telegram.TelegramClient, cfg *config.DownloadConfig) *Downloader {
+func NewDownloader(db *database.PostgresDB, storage storage.StorageInterface, telegram telegram.TelegramClient, cfg *config.DownloadConfig) *Downloader {
 	return &Downloader{
 		db:        db,
 		storage:   storage,
@@ -102,7 +100,8 @@ func (d *Downloader) downloadPostMedia(ctx context.Context, post *models.Post) {
 	if err != nil {
 		utils.LogError(ctx, "Failed to get media from Telegram", err)
 		post.Status = models.PostStatusFailed
-		post.ErrorMessage = err.Error()
+		errMsg := err.Error()
+		post.ErrorMessage = &errMsg
 		d.updatePostStatus(ctx, post)
 		return
 	}
@@ -152,7 +151,8 @@ func (d *Downloader) downloadPostMedia(ctx context.Context, post *models.Post) {
 	// Update post status
 	if hasError {
 		post.Status = models.PostStatusFailed
-		post.ErrorMessage = "Some media files failed to download"
+		errMsg := "Some media files failed to download"
+		post.ErrorMessage = &errMsg
 	} else {
 		post.Status = models.PostStatusCompleted
 		post.MediaCount = mediaCount
@@ -230,75 +230,28 @@ func (d *Downloader) downloadAndStoreMedia(ctx context.Context, post *models.Pos
 }
 
 func (d *Downloader) getPostByID(ctx context.Context, postID string) (*models.Post, error) {
-	var post models.Post
-	err := d.db.Posts().FindOne(ctx, bson.M{"post_id": postID}).Decode(&post)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &post, nil
+	return d.db.GetPostByID(ctx, postID)
 }
 
 func (d *Downloader) savePost(ctx context.Context, post *models.Post) error {
-	if post.ID.IsZero() {
-		result, err := d.db.Posts().InsertOne(ctx, post)
-		if err != nil {
-			return err
-		}
-		post.ID = result.InsertedID.(primitive.ObjectID)
+	if post.ID == uuid.Nil {
+		return d.db.CreatePost(ctx, post)
 	} else {
-		_, err := d.db.Posts().ReplaceOne(
-			ctx,
-			bson.M{"_id": post.ID},
-			post,
-		)
-		if err != nil {
-			return err
-		}
+		return d.db.UpdatePost(ctx, post)
 	}
-	return nil
 }
 
 func (d *Downloader) updatePostStatus(ctx context.Context, post *models.Post) error {
-	update := bson.M{
-		"$set": bson.M{
-			"status":        post.Status,
-			"updated_at":    post.UpdatedAt,
-			"media_count":   post.MediaCount,
-			"total_size":    post.TotalSize,
-			"error_message": post.ErrorMessage,
-		},
-	}
-
-	_, err := d.db.Posts().UpdateOne(
-		ctx,
-		bson.M{"_id": post.ID},
-		update,
-	)
-	return err
+	post.UpdatedAt = time.Now()
+	return d.db.UpdatePost(ctx, post)
 }
 
 func (d *Downloader) getMediaByID(ctx context.Context, mediaID string) (*models.Media, error) {
-	var media models.Media
-	err := d.db.Media().FindOne(ctx, bson.M{"media_id": mediaID}).Decode(&media)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &media, nil
+	return d.db.GetMediaByID(ctx, mediaID)
 }
 
 func (d *Downloader) saveMedia(ctx context.Context, media *models.Media) error {
-	result, err := d.db.Media().InsertOne(ctx, media)
-	if err != nil {
-		return err
-	}
-	media.ID = result.InsertedID.(primitive.ObjectID)
-	return nil
+	return d.db.CreateMedia(ctx, media)
 }
 
 func generateMediaID(postID, fileID string) string {

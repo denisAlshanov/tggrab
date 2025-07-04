@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/denisAlshanov/stPlaner/internal/database"
 	"github.com/denisAlshanov/stPlaner/internal/models"
@@ -21,12 +19,12 @@ import (
 )
 
 type MediaHandler struct {
-	db       *database.MongoDB
+	db       *database.PostgresDB
 	storage  storage.StorageInterface
 	telegram telegram.TelegramClient
 }
 
-func NewMediaHandler(db *database.MongoDB, storage storage.StorageInterface, telegram telegram.TelegramClient) *MediaHandler {
+func NewMediaHandler(db *database.PostgresDB, storage storage.StorageInterface, telegram telegram.TelegramClient) *MediaHandler {
 	return &MediaHandler{
 		db:       db,
 		storage:  storage,
@@ -68,30 +66,21 @@ func (h *MediaHandler) GetLinkList(c *gin.Context) {
 	postID := fmt.Sprintf("%s_%d", channelName, messageID)
 
 	// Find the post
-	var post models.Post
-	err = h.db.Posts().FindOne(ctx, bson.M{"post_id": postID}).Decode(&post)
+	post, err := h.db.GetPostByID(ctx, postID)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			h.errorResponse(c, utils.NewPostNotFoundError(postID))
-		} else {
-			utils.LogError(ctx, "Failed to find post", err)
-			h.errorResponse(c, utils.NewDatabaseError(err))
-		}
+		utils.LogError(ctx, "Failed to find post", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+	if post == nil {
+		h.errorResponse(c, utils.NewPostNotFoundError(postID))
 		return
 	}
 
 	// Find media files for this post
-	cursor, err := h.db.Media().Find(ctx, bson.M{"post_id": postID})
+	mediaFiles, err := h.db.GetMediaByPostID(ctx, postID)
 	if err != nil {
 		utils.LogError(ctx, "Failed to find media", err)
-		h.errorResponse(c, utils.NewDatabaseError(err))
-		return
-	}
-	defer cursor.Close(ctx)
-
-	var mediaFiles []models.Media
-	if err := cursor.All(ctx, &mediaFiles); err != nil {
-		utils.LogError(ctx, "Failed to decode media", err)
 		h.errorResponse(c, utils.NewDatabaseError(err))
 		return
 	}
@@ -145,15 +134,14 @@ func (h *MediaHandler) GetLinkMedia(c *gin.Context) {
 	}
 
 	// Find the media file
-	var media models.Media
-	err := h.db.Media().FindOne(ctx, bson.M{"media_id": req.MediaID}).Decode(&media)
+	media, err := h.db.GetMediaByID(ctx, req.MediaID)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			h.errorResponse(c, utils.NewMediaNotFoundError(req.MediaID))
-		} else {
-			utils.LogError(ctx, "Failed to find media", err)
-			h.errorResponse(c, utils.NewDatabaseError(err))
-		}
+		utils.LogError(ctx, "Failed to find media", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+	if media == nil {
+		h.errorResponse(c, utils.NewMediaNotFoundError(req.MediaID))
 		return
 	}
 
@@ -185,7 +173,7 @@ func (h *MediaHandler) GetLinkMedia(c *gin.Context) {
 }
 
 // handleVideoStream handles video files with range request support
-func (h *MediaHandler) handleVideoStream(c *gin.Context, ctx context.Context, media models.Media, fileSize int64, mediaID string) {
+func (h *MediaHandler) handleVideoStream(c *gin.Context, ctx context.Context, media *models.Media, fileSize int64, mediaID string) {
 	// Parse Range header for video streaming
 	rangeHeader := c.GetHeader("Range")
 	
@@ -199,7 +187,7 @@ func (h *MediaHandler) handleVideoStream(c *gin.Context, ctx context.Context, me
 }
 
 // handleFileStream handles regular files (images, documents)
-func (h *MediaHandler) handleFileStream(c *gin.Context, ctx context.Context, media models.Media, fileSize int64, mediaID string) {
+func (h *MediaHandler) handleFileStream(c *gin.Context, ctx context.Context, media *models.Media, fileSize int64, mediaID string) {
 	// Set response headers
 	c.Header("Content-Type", media.FileType)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", media.FileName))
@@ -233,7 +221,7 @@ func (h *MediaHandler) handleFileStream(c *gin.Context, ctx context.Context, med
 }
 
 // streamFullVideo streams the entire video file
-func (h *MediaHandler) streamFullVideo(c *gin.Context, ctx context.Context, media models.Media, fileSize int64, mediaID string) {
+func (h *MediaHandler) streamFullVideo(c *gin.Context, ctx context.Context, media *models.Media, fileSize int64, mediaID string) {
 	// Set video-specific headers
 	c.Header("Content-Type", media.FileType)
 	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
@@ -270,7 +258,7 @@ func (h *MediaHandler) streamFullVideo(c *gin.Context, ctx context.Context, medi
 }
 
 // handleRangeRequest handles HTTP range requests for video streaming
-func (h *MediaHandler) handleRangeRequest(c *gin.Context, ctx context.Context, media models.Media, fileSize int64, rangeHeader string, mediaID string) {
+func (h *MediaHandler) handleRangeRequest(c *gin.Context, ctx context.Context, media *models.Media, fileSize int64, rangeHeader string, mediaID string) {
 	// Parse range header (e.g., "bytes=0-1023" or "bytes=1024-")
 	if !strings.HasPrefix(rangeHeader, "bytes=") {
 		c.Status(http.StatusRequestedRangeNotSatisfiable)
@@ -397,15 +385,14 @@ func (h *MediaHandler) GetLinkMediaURI(c *gin.Context) {
 	}
 
 	// Find the media file
-	var media models.Media
-	err := h.db.Media().FindOne(ctx, bson.M{"media_id": req.MediaID}).Decode(&media)
+	media, err := h.db.GetMediaByID(ctx, req.MediaID)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			h.errorResponse(c, utils.NewMediaNotFoundError(req.MediaID))
-		} else {
-			utils.LogError(ctx, "Failed to find media", err)
-			h.errorResponse(c, utils.NewDatabaseError(err))
-		}
+		utils.LogError(ctx, "Failed to find media", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+	if media == nil {
+		h.errorResponse(c, utils.NewMediaNotFoundError(req.MediaID))
 		return
 	}
 
