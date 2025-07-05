@@ -14,6 +14,7 @@ import (
 
 	"github.com/denisAlshanov/stPlaner/internal/config"
 	"github.com/denisAlshanov/stPlaner/internal/models"
+	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 type PostgresDB struct {
@@ -164,94 +165,183 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 	return nil
 }
 
-// runMigrations handles database schema migrations
+// Migration represents a database migration
+type Migration struct {
+	Version     int
+	Description string
+	SQL         string
+}
+
+// runMigrations handles database schema migrations with proper version tracking
 func (p *PostgresDB) runMigrations(ctx context.Context) error {
-	// Migration 1: Add original_channel_name column to posts table if it doesn't exist
-	addOriginalChannelName := `
-		DO $$ 
-		BEGIN
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-						   WHERE table_name = 'posts' AND column_name = 'original_channel_name') THEN
-				ALTER TABLE posts ADD COLUMN original_channel_name VARCHAR(255);
-				-- Set original_channel_name to channel_name for existing records
-				UPDATE posts SET original_channel_name = channel_name WHERE original_channel_name IS NULL;
-				-- Make the column NOT NULL after updating existing records
-				ALTER TABLE posts ALTER COLUMN original_channel_name SET NOT NULL;
-				-- Create index
-				CREATE INDEX IF NOT EXISTS idx_posts_original_channel_name ON posts(original_channel_name);
-			END IF;
-		END $$;
-	`
-
-	if _, err := p.pool.Exec(ctx, addOriginalChannelName); err != nil {
-		return fmt.Errorf("failed to add original_channel_name column: %w", err)
+	// First, create migrations table if it doesn't exist
+	if err := p.createMigrationsTable(ctx); err != nil {
+		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
 
-	// Migration 2: Add original_file_name column to media table if it doesn't exist
-	addOriginalFileName := `
-		DO $$ 
-		BEGIN
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-						   WHERE table_name = 'media' AND column_name = 'original_file_name') THEN
-				ALTER TABLE media ADD COLUMN original_file_name VARCHAR(500);
-				-- Set original_file_name to file_name for existing records
-				UPDATE media SET original_file_name = file_name WHERE original_file_name IS NULL;
-				-- Make the column NOT NULL after updating existing records
-				ALTER TABLE media ALTER COLUMN original_file_name SET NOT NULL;
-				-- Create index
-				CREATE INDEX IF NOT EXISTS idx_media_original_file_name ON media(original_file_name);
-			END IF;
-		END $$;
-	`
-
-	if _, err := p.pool.Exec(ctx, addOriginalFileName); err != nil {
-		return fmt.Errorf("failed to add original_file_name column: %w", err)
+	// Define all migrations
+	migrations := []Migration{
+		{
+			Version:     1,
+			Description: "Add original_channel_name column to posts table",
+			SQL: `
+				DO $$ 
+				BEGIN
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'posts' AND column_name = 'original_channel_name') THEN
+						ALTER TABLE posts ADD COLUMN original_channel_name VARCHAR(255);
+						-- Set original_channel_name to channel_name for existing records
+						UPDATE posts SET original_channel_name = channel_name WHERE original_channel_name IS NULL;
+						-- Make the column NOT NULL after updating existing records
+						ALTER TABLE posts ALTER COLUMN original_channel_name SET NOT NULL;
+						-- Create index
+						CREATE INDEX IF NOT EXISTS idx_posts_original_channel_name ON posts(original_channel_name);
+					END IF;
+				END $$;
+			`,
+		},
+		{
+			Version:     2,
+			Description: "Add original_file_name column to media table",
+			SQL: `
+				DO $$ 
+				BEGIN
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'media' AND column_name = 'original_file_name') THEN
+						ALTER TABLE media ADD COLUMN original_file_name VARCHAR(500);
+						-- Set original_file_name to file_name for existing records
+						UPDATE media SET original_file_name = file_name WHERE original_file_name IS NULL;
+						-- Make the column NOT NULL after updating existing records
+						ALTER TABLE media ALTER COLUMN original_file_name SET NOT NULL;
+						-- Create index
+						CREATE INDEX IF NOT EXISTS idx_media_original_file_name ON media(original_file_name);
+				END IF;
+				END $$;
+			`,
+		},
+		{
+			Version:     3,
+			Description: "Rename post_id to content_id in posts table",
+			SQL: `
+				DO $$ 
+				BEGIN
+					-- Check if content_id column exists, if not rename post_id
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'posts' AND column_name = 'content_id') THEN
+						-- Rename the column
+						ALTER TABLE posts RENAME COLUMN post_id TO content_id;
+						-- Drop old index and create new one
+						DROP INDEX IF EXISTS idx_posts_post_id;
+						CREATE INDEX IF NOT EXISTS idx_posts_content_id ON posts(content_id);
+					END IF;
+				END $$;
+			`,
+		},
+		{
+			Version:     4,
+			Description: "Rename post_id to content_id in media table",
+			SQL: `
+				DO $$ 
+				BEGIN
+					-- Check if content_id column exists in media table, if not rename post_id
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'media' AND column_name = 'content_id') THEN
+						-- Drop foreign key constraint first
+						ALTER TABLE media DROP CONSTRAINT IF EXISTS media_post_id_fkey;
+						-- Rename the column
+						ALTER TABLE media RENAME COLUMN post_id TO content_id;
+						-- Drop old index and create new one
+						DROP INDEX IF EXISTS idx_media_post_id;
+						CREATE INDEX IF NOT EXISTS idx_media_content_id ON media(content_id);
+						-- Add new foreign key constraint
+						ALTER TABLE media ADD CONSTRAINT media_content_id_fkey 
+							FOREIGN KEY (content_id) REFERENCES posts(content_id) ON DELETE CASCADE;
+					END IF;
+				END $$;
+			`,
+		},
 	}
 
-	// Migration 3: Rename post_id to content_id in posts table
-	renamePostIDToContentID := `
-		DO $$ 
-		BEGIN
-			-- Check if content_id column exists, if not rename post_id
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-						   WHERE table_name = 'posts' AND column_name = 'content_id') THEN
-				-- Rename the column
-				ALTER TABLE posts RENAME COLUMN post_id TO content_id;
-				-- Drop old index and create new one
-				DROP INDEX IF EXISTS idx_posts_post_id;
-				CREATE INDEX IF NOT EXISTS idx_posts_content_id ON posts(content_id);
-			END IF;
-		END $$;
-	`
-	
-	if _, err := p.pool.Exec(ctx, renamePostIDToContentID); err != nil {
-		return fmt.Errorf("failed to rename post_id to content_id: %w", err)
+	// Run each migration if not already applied
+	for _, migration := range migrations {
+		if err := p.runMigration(ctx, migration); err != nil {
+			return fmt.Errorf("failed to run migration %d: %w", migration.Version, err)
+		}
 	}
 
-	// Migration 4: Rename post_id to content_id in media table
-	renameMediaPostIDToContentID := `
-		DO $$ 
-		BEGIN
-			-- Check if content_id column exists in media table, if not rename post_id
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-						   WHERE table_name = 'media' AND column_name = 'content_id') THEN
-				-- Drop foreign key constraint first
-				ALTER TABLE media DROP CONSTRAINT IF EXISTS media_post_id_fkey;
-				-- Rename the column
-				ALTER TABLE media RENAME COLUMN post_id TO content_id;
-				-- Drop old index and create new one
-				DROP INDEX IF EXISTS idx_media_post_id;
-				CREATE INDEX IF NOT EXISTS idx_media_content_id ON media(content_id);
-				-- Add new foreign key constraint
-				ALTER TABLE media ADD CONSTRAINT media_content_id_fkey 
-					FOREIGN KEY (content_id) REFERENCES posts(content_id) ON DELETE CASCADE;
-			END IF;
-		END $$;
+	return nil
+}
+
+// createMigrationsTable creates the migrations tracking table
+func (p *PostgresDB) createMigrationsTable(ctx context.Context) error {
+	createTableSQL := `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY,
+			description VARCHAR(255) NOT NULL,
+			applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);
 	`
-	
-	if _, err := p.pool.Exec(ctx, renameMediaPostIDToContentID); err != nil {
-		return fmt.Errorf("failed to rename post_id to content_id in media table: %w", err)
+
+	_, err := p.pool.Exec(ctx, createTableSQL)
+	return err
+}
+
+// runMigration executes a single migration if it hasn't been applied yet
+func (p *PostgresDB) runMigration(ctx context.Context, migration Migration) error {
+	// Check if migration has already been applied
+	var exists bool
+	checkSQL := "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)"
+	err := p.pool.QueryRow(ctx, checkSQL, migration.Version).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check migration status: %w", err)
 	}
+
+	if exists {
+		// Migration already applied, skip
+		utils.LogInfo(ctx, "Migration already applied", utils.Fields{
+			"version":     migration.Version,
+			"description": migration.Description,
+		})
+		return nil
+	}
+
+	// Start transaction for migration
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin migration transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Execute migration SQL
+	utils.LogInfo(ctx, "Applying migration", utils.Fields{
+		"version":     migration.Version,
+		"description": migration.Description,
+	})
+
+	_, err = tx.Exec(ctx, migration.SQL)
+	if err != nil {
+		return fmt.Errorf("failed to execute migration SQL: %w", err)
+	}
+
+	// Record migration as applied
+	recordSQL := `
+		INSERT INTO schema_migrations (version, description) 
+		VALUES ($1, $2)
+	`
+	_, err = tx.Exec(ctx, recordSQL, migration.Version, migration.Description)
+	if err != nil {
+		return fmt.Errorf("failed to record migration: %w", err)
+	}
+
+	// Commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit migration transaction: %w", err)
+	}
+
+	utils.LogInfo(ctx, "Migration applied successfully", utils.Fields{
+		"version":     migration.Version,
+		"description": migration.Description,
+	})
 
 	return nil
 }
@@ -540,6 +630,51 @@ func (p *PostgresDB) DeleteMedia(ctx context.Context, mediaID string) error {
 	}
 
 	return nil
+}
+
+// GetMigrationStatus returns the current migration status
+func (p *PostgresDB) GetMigrationStatus(ctx context.Context) ([]Migration, error) {
+	// First check if migrations table exists
+	var tableExists bool
+	checkTableSQL := `
+		SELECT EXISTS (
+			SELECT FROM information_schema.tables 
+			WHERE table_name = 'schema_migrations'
+		)
+	`
+	err := p.pool.QueryRow(ctx, checkTableSQL).Scan(&tableExists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check migrations table: %w", err)
+	}
+
+	if !tableExists {
+		return []Migration{}, nil
+	}
+
+	// Get applied migrations
+	query := `
+		SELECT version, description, applied_at 
+		FROM schema_migrations 
+		ORDER BY version
+	`
+	rows, err := p.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query migrations: %w", err)
+	}
+	defer rows.Close()
+
+	var migrations []Migration
+	for rows.Next() {
+		var migration Migration
+		var appliedAt time.Time
+		err := rows.Scan(&migration.Version, &migration.Description, &appliedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan migration row: %w", err)
+		}
+		migrations = append(migrations, migration)
+	}
+
+	return migrations, nil
 }
 
 // Transaction support

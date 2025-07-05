@@ -546,6 +546,9 @@ const docTemplate = `{
         "handlers.HealthResponse": {
             "type": "object",
             "properties": {
+                "migrations": {
+                    "$ref": "#/definitions/handlers.MigrationStatus"
+                },
                 "services": {
                     "type": "object",
                     "additionalProperties": {
@@ -560,6 +563,31 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.MigrationInfo": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.MigrationStatus": {
+            "type": "object",
+            "properties": {
+                "applied": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.MigrationInfo"
+                    }
+                },
+                "count": {
+                    "type": "integer"
                 }
             }
         },

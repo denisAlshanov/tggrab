@@ -4,15 +4,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-St. Planer is a YouTube Stream Planner - a Go-based microservice for planning, scheduling, and managing YouTube live streams. The service provides a RESTful API that helps content creators organize their streaming schedule, plan content segments, and manage their streaming workflow efficiently.
+St. Planer is a YouTube Stream Planner - a Go-based microservice that automatically downloads and processes media content from both Telegram posts and YouTube videos. The service provides a RESTful API for managing media downloads, with automatic platform detection and processing capabilities including video/audio merging for YouTube content.
 
 ## Key Architecture Components
 
 - **API Framework**: Gin (with Swagger/OpenAPI 3.0 documentation)
-- **Database**: PostgreSQL for stream schedules and metadata
-- **Object Storage**: AWS S3 for thumbnails and stream assets
-- **YouTube Integration**: YouTube Data API v3 for stream management
+- **Database**: PostgreSQL for media metadata storage
+- **Object Storage**: AWS S3 for downloaded media files
+- **Telegram Integration**: MTProto User API using gotd/td library for real media downloads
+- **YouTube Integration**: kkdai/youtube/v2 library for video downloads with FFmpeg merging
+- **Video Processing**: FFmpeg for merging separate video and audio streams
 - **Authentication**: JWT tokens with API key support
+
+## System Requirements
+
+### Required System Dependencies
+
+- **Go 1.23+**: For building and running the application
+- **PostgreSQL**: Database for metadata storage
+- **FFmpeg**: Required for YouTube video processing (merging video and audio streams)
+- **AWS CLI** (optional): For S3 configuration and testing
+
+### Installing FFmpeg
+
+#### Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+#### macOS (with Homebrew):
+```bash
+brew install ffmpeg
+```
+
+#### Alpine Linux (for Docker):
+```bash
+apk add --no-cache ffmpeg
+```
+
+#### Windows:
+Download from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html) and add to PATH.
 
 ## Common Development Commands
 
@@ -43,9 +75,11 @@ go get -u github.com/swaggo/echo-swagger # if using Echo
 # Environment variables
 go get github.com/joho/godotenv
 
-# YouTube API client
-go get google.golang.org/api/youtube/v3
-go get golang.org/x/oauth2/google
+# Telegram client (choose based on approach)
+go get -u github.com/gotd/td  # MTProto client
+
+# YouTube downloader
+go get github.com/kkdai/youtube/v2
 
 # JWT
 go get github.com/golang-jwt/jwt/v5
@@ -188,6 +222,34 @@ To enable:
 5. Implement caching for frequently accessed data
 6. Generate Swagger docs after API changes
 7. Write unit tests for all service methods
+
+## Database Migrations
+
+The service includes an automatic migration system that runs on startup:
+
+### How It Works
+1. **Migration Tracking**: A `schema_migrations` table tracks applied migrations
+2. **Version Control**: Each migration has a unique version number and description
+3. **Automatic Execution**: Migrations run automatically when the service starts
+4. **Idempotent**: Migrations are only applied once, even if service restarts
+5. **Transactional**: Each migration runs in a transaction for consistency
+
+### Current Migrations
+- **Version 1**: Add `original_channel_name` column to posts table
+- **Version 2**: Add `original_file_name` column to media table  
+- **Version 3**: Rename `post_id` to `content_id` in posts table
+- **Version 4**: Rename `post_id` to `content_id` in media table
+
+### Migration Status
+Check migration status via the health endpoint: `GET /health`
+
+### Adding New Migrations
+To add a new migration:
+1. Add a new `Migration` struct to the `migrations` slice in `internal/database/postgres.go`
+2. Increment the version number
+3. Provide a clear description
+4. Write idempotent SQL (use `IF NOT EXISTS`, `IF EXISTS`, etc.)
+5. Test thoroughly on a copy of production data
 
 ## Testing Guidelines
 

@@ -2,6 +2,8 @@ basePath: /
 definitions:
   handlers.HealthResponse:
     properties:
+      migrations:
+        $ref: '#/definitions/handlers.MigrationStatus'
       services:
         additionalProperties:
           $ref: '#/definitions/handlers.ServiceHealth'
@@ -12,6 +14,22 @@ definitions:
         type: string
       version:
         type: string
+    type: object
+  handlers.MigrationInfo:
+    properties:
+      description:
+        type: string
+      version:
+        type: integer
+    type: object
+  handlers.MigrationStatus:
+    properties:
+      applied:
+        items:
+          $ref: '#/definitions/handlers.MigrationInfo'
+        type: array
+      count:
+        type: integer
     type: object
   handlers.ServiceHealth:
     properties:

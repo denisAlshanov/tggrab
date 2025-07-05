@@ -18,10 +18,21 @@ type HealthHandler struct {
 }
 
 type HealthResponse struct {
-	Status    string                   `json:"status"`
-	Timestamp string                   `json:"timestamp"`
-	Version   string                   `json:"version"`
-	Services  map[string]ServiceHealth `json:"services"`
+	Status     string                   `json:"status"`
+	Timestamp  string                   `json:"timestamp"`
+	Version    string                   `json:"version"`
+	Services   map[string]ServiceHealth `json:"services"`
+	Migrations MigrationStatus          `json:"migrations,omitempty"`
+}
+
+type MigrationStatus struct {
+	Applied []MigrationInfo `json:"applied"`
+	Count   int             `json:"count"`
+}
+
+type MigrationInfo struct {
+	Version     int    `json:"version"`
+	Description string `json:"description"`
 }
 
 type ServiceHealth struct {
@@ -62,6 +73,10 @@ func (h *HealthHandler) Health(c *gin.Context) {
 	// Check S3
 	s3Health := h.checkS3(ctx)
 	response.Services["s3"] = s3Health
+
+	// Get migration status
+	migrationStatus := h.getMigrationStatus(ctx)
+	response.Migrations = migrationStatus
 
 	// Determine overall status
 	overallHealthy := true
@@ -185,5 +200,33 @@ func (h *HealthHandler) checkS3(ctx context.Context) ServiceHealth {
 	return ServiceHealth{
 		Status:       "healthy",
 		ResponseTime: responseTime,
+	}
+}
+
+func (h *HealthHandler) getMigrationStatus(ctx context.Context) MigrationStatus {
+	// Create a timeout context for migration status check
+	checkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	migrations, err := h.db.GetMigrationStatus(checkCtx)
+	if err != nil {
+		utils.LogError(ctx, "Failed to get migration status", err)
+		return MigrationStatus{
+			Applied: []MigrationInfo{},
+			Count:   0,
+		}
+	}
+
+	migrationInfos := make([]MigrationInfo, len(migrations))
+	for i, migration := range migrations {
+		migrationInfos[i] = MigrationInfo{
+			Version:     migration.Version,
+			Description: migration.Description,
+		}
+	}
+
+	return MigrationStatus{
+		Applied: migrationInfos,
+		Count:   len(migrationInfos),
 	}
 }
