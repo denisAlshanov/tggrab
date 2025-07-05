@@ -83,9 +83,10 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 	createPostsTable := `
 		CREATE TABLE IF NOT EXISTS posts (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			post_id VARCHAR(255) UNIQUE NOT NULL,
+			content_id VARCHAR(255) UNIQUE NOT NULL,
 			telegram_link VARCHAR(500) UNIQUE NOT NULL,
 			channel_name VARCHAR(255) NOT NULL,
+			original_channel_name VARCHAR(255) NOT NULL,
 			message_id BIGINT NOT NULL,
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -95,8 +96,9 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 			error_message TEXT
 		);
 
-		CREATE INDEX IF NOT EXISTS idx_posts_post_id ON posts(post_id);
+		CREATE INDEX IF NOT EXISTS idx_posts_content_id ON posts(content_id);
 		CREATE INDEX IF NOT EXISTS idx_posts_channel_name ON posts(channel_name);
+		CREATE INDEX IF NOT EXISTS idx_posts_original_channel_name ON posts(original_channel_name);
 		CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
 		CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
 	`
@@ -110,9 +112,10 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS media (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			media_id VARCHAR(255) UNIQUE NOT NULL,
-			post_id VARCHAR(255) NOT NULL,
+			content_id VARCHAR(255) NOT NULL,
 			telegram_file_id VARCHAR(500) NOT NULL,
 			file_name VARCHAR(500) NOT NULL,
+			original_file_name VARCHAR(500) NOT NULL,
 			file_type VARCHAR(100) NOT NULL,
 			file_size BIGINT NOT NULL,
 			s3_bucket VARCHAR(255) NOT NULL,
@@ -120,17 +123,23 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 			file_hash VARCHAR(255) NOT NULL,
 			downloaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			metadata JSONB,
-			FOREIGN KEY (post_id) REFERENCES posts(post_id) ON DELETE CASCADE
+			FOREIGN KEY (content_id) REFERENCES posts(content_id) ON DELETE CASCADE
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_media_media_id ON media(media_id);
-		CREATE INDEX IF NOT EXISTS idx_media_post_id ON media(post_id);
+		CREATE INDEX IF NOT EXISTS idx_media_content_id ON media(content_id);
 		CREATE INDEX IF NOT EXISTS idx_media_file_hash ON media(file_hash);
 		CREATE INDEX IF NOT EXISTS idx_media_telegram_file_id ON media(telegram_file_id);
+		CREATE INDEX IF NOT EXISTS idx_media_original_file_name ON media(original_file_name);
 	`
 
 	if _, err := p.pool.Exec(ctx, createMediaTable); err != nil {
 		return fmt.Errorf("failed to create media table: %w", err)
+	}
+
+	// Run migrations for existing databases
+	if err := p.runMigrations(ctx); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	// Create update trigger for updated_at
@@ -155,6 +164,98 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 	return nil
 }
 
+// runMigrations handles database schema migrations
+func (p *PostgresDB) runMigrations(ctx context.Context) error {
+	// Migration 1: Add original_channel_name column to posts table if it doesn't exist
+	addOriginalChannelName := `
+		DO $$ 
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+						   WHERE table_name = 'posts' AND column_name = 'original_channel_name') THEN
+				ALTER TABLE posts ADD COLUMN original_channel_name VARCHAR(255);
+				-- Set original_channel_name to channel_name for existing records
+				UPDATE posts SET original_channel_name = channel_name WHERE original_channel_name IS NULL;
+				-- Make the column NOT NULL after updating existing records
+				ALTER TABLE posts ALTER COLUMN original_channel_name SET NOT NULL;
+				-- Create index
+				CREATE INDEX IF NOT EXISTS idx_posts_original_channel_name ON posts(original_channel_name);
+			END IF;
+		END $$;
+	`
+
+	if _, err := p.pool.Exec(ctx, addOriginalChannelName); err != nil {
+		return fmt.Errorf("failed to add original_channel_name column: %w", err)
+	}
+
+	// Migration 2: Add original_file_name column to media table if it doesn't exist
+	addOriginalFileName := `
+		DO $$ 
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+						   WHERE table_name = 'media' AND column_name = 'original_file_name') THEN
+				ALTER TABLE media ADD COLUMN original_file_name VARCHAR(500);
+				-- Set original_file_name to file_name for existing records
+				UPDATE media SET original_file_name = file_name WHERE original_file_name IS NULL;
+				-- Make the column NOT NULL after updating existing records
+				ALTER TABLE media ALTER COLUMN original_file_name SET NOT NULL;
+				-- Create index
+				CREATE INDEX IF NOT EXISTS idx_media_original_file_name ON media(original_file_name);
+			END IF;
+		END $$;
+	`
+
+	if _, err := p.pool.Exec(ctx, addOriginalFileName); err != nil {
+		return fmt.Errorf("failed to add original_file_name column: %w", err)
+	}
+
+	// Migration 3: Rename post_id to content_id in posts table
+	renamePostIDToContentID := `
+		DO $$ 
+		BEGIN
+			-- Check if content_id column exists, if not rename post_id
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+						   WHERE table_name = 'posts' AND column_name = 'content_id') THEN
+				-- Rename the column
+				ALTER TABLE posts RENAME COLUMN post_id TO content_id;
+				-- Drop old index and create new one
+				DROP INDEX IF EXISTS idx_posts_post_id;
+				CREATE INDEX IF NOT EXISTS idx_posts_content_id ON posts(content_id);
+			END IF;
+		END $$;
+	`
+	
+	if _, err := p.pool.Exec(ctx, renamePostIDToContentID); err != nil {
+		return fmt.Errorf("failed to rename post_id to content_id: %w", err)
+	}
+
+	// Migration 4: Rename post_id to content_id in media table
+	renameMediaPostIDToContentID := `
+		DO $$ 
+		BEGIN
+			-- Check if content_id column exists in media table, if not rename post_id
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+						   WHERE table_name = 'media' AND column_name = 'content_id') THEN
+				-- Drop foreign key constraint first
+				ALTER TABLE media DROP CONSTRAINT IF EXISTS media_post_id_fkey;
+				-- Rename the column
+				ALTER TABLE media RENAME COLUMN post_id TO content_id;
+				-- Drop old index and create new one
+				DROP INDEX IF EXISTS idx_media_post_id;
+				CREATE INDEX IF NOT EXISTS idx_media_content_id ON media(content_id);
+				-- Add new foreign key constraint
+				ALTER TABLE media ADD CONSTRAINT media_content_id_fkey 
+					FOREIGN KEY (content_id) REFERENCES posts(content_id) ON DELETE CASCADE;
+			END IF;
+		END $$;
+	`
+	
+	if _, err := p.pool.Exec(ctx, renameMediaPostIDToContentID); err != nil {
+		return fmt.Errorf("failed to rename post_id to content_id in media table: %w", err)
+	}
+
+	return nil
+}
+
 // Post operations
 func (p *PostgresDB) CreatePost(ctx context.Context, post *models.Post) error {
 	post.ID = uuid.New()
@@ -162,13 +263,13 @@ func (p *PostgresDB) CreatePost(ctx context.Context, post *models.Post) error {
 	post.UpdatedAt = time.Now()
 
 	query := `
-		INSERT INTO posts (id, post_id, telegram_link, channel_name, message_id, 
+		INSERT INTO posts (id, content_id, telegram_link, channel_name, original_channel_name, message_id, 
 			created_at, updated_at, status, media_count, total_size, error_message)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id, created_at, updated_at`
 
 	err := p.pool.QueryRow(ctx, query,
-		post.ID, post.PostID, post.TelegramLink, post.ChannelName, post.MessageID,
+		post.ID, post.ContentID, post.TelegramLink, post.ChannelName, post.OriginalChannelName, post.MessageID,
 		post.CreatedAt, post.UpdatedAt, post.Status, post.MediaCount, post.TotalSize,
 		post.ErrorMessage,
 	).Scan(&post.ID, &post.CreatedAt, &post.UpdatedAt)
@@ -176,15 +277,15 @@ func (p *PostgresDB) CreatePost(ctx context.Context, post *models.Post) error {
 	return err
 }
 
-func (p *PostgresDB) GetPostByID(ctx context.Context, postID string) (*models.Post, error) {
+func (p *PostgresDB) GetPostByContentID(ctx context.Context, contentID string) (*models.Post, error) {
 	post := &models.Post{}
 	query := `
-		SELECT id, post_id, telegram_link, channel_name, message_id, 
+		SELECT id, content_id, telegram_link, channel_name, original_channel_name, message_id, 
 			created_at, updated_at, status, media_count, total_size, error_message
-		FROM posts WHERE post_id = $1`
+		FROM posts WHERE content_id = $1`
 
-	err := p.pool.QueryRow(ctx, query, postID).Scan(
-		&post.ID, &post.PostID, &post.TelegramLink, &post.ChannelName, &post.MessageID,
+	err := p.pool.QueryRow(ctx, query, contentID).Scan(
+		&post.ID, &post.ContentID, &post.TelegramLink, &post.ChannelName, &post.OriginalChannelName, &post.MessageID,
 		&post.CreatedAt, &post.UpdatedAt, &post.Status, &post.MediaCount, &post.TotalSize,
 		&post.ErrorMessage,
 	)
@@ -198,12 +299,12 @@ func (p *PostgresDB) GetPostByID(ctx context.Context, postID string) (*models.Po
 func (p *PostgresDB) GetPostByLink(ctx context.Context, link string) (*models.Post, error) {
 	post := &models.Post{}
 	query := `
-		SELECT id, post_id, telegram_link, channel_name, message_id, 
+		SELECT id, content_id, telegram_link, channel_name, original_channel_name, message_id, 
 			created_at, updated_at, status, media_count, total_size, error_message
 		FROM posts WHERE telegram_link = $1`
 
 	err := p.pool.QueryRow(ctx, query, link).Scan(
-		&post.ID, &post.PostID, &post.TelegramLink, &post.ChannelName, &post.MessageID,
+		&post.ID, &post.ContentID, &post.TelegramLink, &post.ChannelName, &post.OriginalChannelName, &post.MessageID,
 		&post.CreatedAt, &post.UpdatedAt, &post.Status, &post.MediaCount, &post.TotalSize,
 		&post.ErrorMessage,
 	)
@@ -217,12 +318,12 @@ func (p *PostgresDB) GetPostByLink(ctx context.Context, link string) (*models.Po
 func (p *PostgresDB) UpdatePost(ctx context.Context, post *models.Post) error {
 	query := `
 		UPDATE posts SET 
-			telegram_link = $2, channel_name = $3, message_id = $4,
-			status = $5, media_count = $6, total_size = $7, error_message = $8
-		WHERE post_id = $1`
+			telegram_link = $2, channel_name = $3, original_channel_name = $4, message_id = $5,
+			status = $6, media_count = $7, total_size = $8, error_message = $9
+		WHERE content_id = $1`
 
 	_, err := p.pool.Exec(ctx, query,
-		post.PostID, post.TelegramLink, post.ChannelName, post.MessageID,
+		post.ContentID, post.TelegramLink, post.ChannelName, post.OriginalChannelName, post.MessageID,
 		post.Status, post.MediaCount, post.TotalSize, post.ErrorMessage,
 	)
 	return err
@@ -247,7 +348,7 @@ func (p *PostgresDB) ListPosts(ctx context.Context, opts models.PaginationOption
 
 	// Get posts
 	query := `
-		SELECT id, post_id, telegram_link, channel_name, message_id, 
+		SELECT id, content_id, telegram_link, channel_name, original_channel_name, message_id, 
 			created_at, updated_at, status, media_count, total_size, error_message
 		FROM posts 
 		ORDER BY created_at DESC
@@ -263,7 +364,7 @@ func (p *PostgresDB) ListPosts(ctx context.Context, opts models.PaginationOption
 	for rows.Next() {
 		var post models.Post
 		err := rows.Scan(
-			&post.ID, &post.PostID, &post.TelegramLink, &post.ChannelName, &post.MessageID,
+			&post.ID, &post.ContentID, &post.TelegramLink, &post.ChannelName, &post.OriginalChannelName, &post.MessageID,
 			&post.CreatedAt, &post.UpdatedAt, &post.Status, &post.MediaCount, &post.TotalSize,
 			&post.ErrorMessage,
 		)
@@ -288,13 +389,13 @@ func (p *PostgresDB) CreateMedia(ctx context.Context, media *models.Media) error
 	}
 
 	query := `
-		INSERT INTO media (id, media_id, post_id, telegram_file_id, file_name, 
+		INSERT INTO media (id, media_id, content_id, telegram_file_id, file_name, original_file_name,
 			file_type, file_size, s3_bucket, s3_key, file_hash, downloaded_at, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, downloaded_at`
 
 	err = p.pool.QueryRow(ctx, query,
-		media.ID, media.MediaID, media.PostID, media.TelegramFileID, media.FileName,
+		media.ID, media.MediaID, media.ContentID, media.TelegramFileID, media.FileName, media.OriginalFileName,
 		media.FileType, media.FileSize, media.S3Bucket, media.S3Key, media.FileHash,
 		media.DownloadedAt, metadataJSON,
 	).Scan(&media.ID, &media.DownloadedAt)
@@ -307,12 +408,12 @@ func (p *PostgresDB) GetMediaByID(ctx context.Context, mediaID string) (*models.
 	var metadataJSON []byte
 
 	query := `
-		SELECT id, media_id, post_id, telegram_file_id, file_name, 
+		SELECT id, media_id, content_id, telegram_file_id, file_name, original_file_name,
 			file_type, file_size, s3_bucket, s3_key, file_hash, downloaded_at, metadata
 		FROM media WHERE media_id = $1`
 
 	err := p.pool.QueryRow(ctx, query, mediaID).Scan(
-		&media.ID, &media.MediaID, &media.PostID, &media.TelegramFileID, &media.FileName,
+		&media.ID, &media.MediaID, &media.ContentID, &media.TelegramFileID, &media.FileName, &media.OriginalFileName,
 		&media.FileType, &media.FileSize, &media.S3Bucket, &media.S3Key, &media.FileHash,
 		&media.DownloadedAt, &metadataJSON,
 	)
@@ -334,14 +435,14 @@ func (p *PostgresDB) GetMediaByID(ctx context.Context, mediaID string) (*models.
 	return media, nil
 }
 
-func (p *PostgresDB) GetMediaByPostID(ctx context.Context, postID string) ([]models.Media, error) {
+func (p *PostgresDB) GetMediaByContentID(ctx context.Context, contentID string) ([]models.Media, error) {
 	query := `
-		SELECT id, media_id, post_id, telegram_file_id, file_name, 
+		SELECT id, media_id, content_id, telegram_file_id, file_name, original_file_name,
 			file_type, file_size, s3_bucket, s3_key, file_hash, downloaded_at, metadata
-		FROM media WHERE post_id = $1
+		FROM media WHERE content_id = $1
 		ORDER BY downloaded_at ASC`
 
-	rows, err := p.pool.Query(ctx, query, postID)
+	rows, err := p.pool.Query(ctx, query, contentID)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +454,7 @@ func (p *PostgresDB) GetMediaByPostID(ctx context.Context, postID string) ([]mod
 		var metadataJSON []byte
 
 		err := rows.Scan(
-			&media.ID, &media.MediaID, &media.PostID, &media.TelegramFileID, &media.FileName,
+			&media.ID, &media.MediaID, &media.ContentID, &media.TelegramFileID, &media.FileName, &media.OriginalFileName,
 			&media.FileType, &media.FileSize, &media.S3Bucket, &media.S3Key, &media.FileHash,
 			&media.DownloadedAt, &metadataJSON,
 		)
@@ -379,13 +480,13 @@ func (p *PostgresDB) GetMediaByHash(ctx context.Context, hash string) (*models.M
 	var metadataJSON []byte
 
 	query := `
-		SELECT id, media_id, post_id, telegram_file_id, file_name, 
+		SELECT id, media_id, content_id, telegram_file_id, file_name, original_file_name,
 			file_type, file_size, s3_bucket, s3_key, file_hash, downloaded_at, metadata
 		FROM media WHERE file_hash = $1
 		LIMIT 1`
 
 	err := p.pool.QueryRow(ctx, query, hash).Scan(
-		&media.ID, &media.MediaID, &media.PostID, &media.TelegramFileID, &media.FileName,
+		&media.ID, &media.MediaID, &media.ContentID, &media.TelegramFileID, &media.FileName, &media.OriginalFileName,
 		&media.FileType, &media.FileSize, &media.S3Bucket, &media.S3Key, &media.FileHash,
 		&media.DownloadedAt, &metadataJSON,
 	)
@@ -405,6 +506,40 @@ func (p *PostgresDB) GetMediaByHash(ctx context.Context, hash string) (*models.M
 	}
 
 	return media, nil
+}
+
+func (p *PostgresDB) UpdateMedia(ctx context.Context, media *models.Media) error {
+	// Convert metadata to JSON
+	metadataJSON, err := json.Marshal(media.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	query := `
+		UPDATE media SET 
+			file_name = $2, original_file_name = $3, metadata = $4
+		WHERE media_id = $1`
+
+	_, err = p.pool.Exec(ctx, query,
+		media.MediaID, media.FileName, media.OriginalFileName, metadataJSON,
+	)
+	return err
+}
+
+func (p *PostgresDB) DeleteMedia(ctx context.Context, mediaID string) error {
+	query := `DELETE FROM media WHERE media_id = $1`
+
+	result, err := p.pool.Exec(ctx, query, mediaID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("no media found with ID: %s", mediaID)
+	}
+
+	return nil
 }
 
 // Transaction support

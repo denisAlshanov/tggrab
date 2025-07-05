@@ -31,44 +31,54 @@ definitions:
     type: object
   models.AddPostResponse:
     properties:
+      content_id:
+        type: string
       media_count:
         type: integer
       message:
-        type: string
-      post_id:
         type: string
       processing_status:
         $ref: '#/definitions/models.PostStatus'
       status:
         type: string
     type: object
-  models.GetLinkListRequest:
+  models.DeleteMediaRequest:
     properties:
-      link:
-        type: string
-    required:
-    - link
-    type: object
-  models.GetLinkMediaRequest:
-    properties:
-      link:
-        type: string
       media_id:
         type: string
     required:
-    - link
+    - media_id
+    type: object
+  models.DeleteMediaResponse:
+    properties:
+      media_id:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  models.GetLinkListRequest:
+    properties:
+      content_id:
+        type: string
+    required:
+    - content_id
+    type: object
+  models.GetLinkMediaRequest:
+    properties:
+      media_id:
+        type: string
+    required:
     - media_id
     type: object
   models.GetLinkMediaURIRequest:
     properties:
       expiry_minutes:
         type: integer
-      link:
-        type: string
       media_id:
         type: string
     required:
-    - link
     - media_id
     type: object
   models.GetLinkMediaURIResponse:
@@ -95,25 +105,25 @@ definitions:
     type: object
   models.MediaListResponse:
     properties:
+      content_id:
+        type: string
       link:
         type: string
       media_files:
         items:
           $ref: '#/definitions/models.MediaListItem'
         type: array
-      post_id:
-        type: string
     type: object
   models.PostListItem:
     properties:
       added_at:
         type: string
+      content_id:
+        type: string
       link:
         type: string
       media_count:
         type: integer
-      post_id:
-        type: string
       status:
         $ref: '#/definitions/models.PostStatus'
     type: object
@@ -142,6 +152,29 @@ definitions:
     - PostStatusProcessing
     - PostStatusCompleted
     - PostStatusFailed
+  models.UpdateMediaRequest:
+    properties:
+      file_name:
+        type: string
+      media_id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      original_file_name:
+        type: string
+    required:
+    - media_id
+    type: object
+  models.UpdateMediaResponse:
+    properties:
+      media_id:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -158,6 +191,44 @@ info:
   version: "1.0"
 paths:
   /api/v1/media/get:
+    delete:
+      consumes:
+      - application/json
+      description: Delete media file from database and S3 storage
+      parameters:
+      - description: Media delete request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteMediaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteMediaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete media file
+      tags:
+      - media
     post:
       consumes:
       - application/json
@@ -210,6 +281,44 @@ paths:
       summary: Download specific media file
       tags:
       - media
+    put:
+      consumes:
+      - application/json
+      description: Update media file metadata including filename and custom metadata
+      parameters:
+      - description: Media update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMediaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateMediaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update media metadata
+      tags:
+      - media
   /api/v1/media/getDirect:
     post:
       consumes:
@@ -253,9 +362,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add a new Telegram post link to download media
+      description: Add a new Telegram post link or YouTube video URL to download media.
+        Automatically detects the platform and processes accordingly.
       parameters:
-      - description: Post link
+      - description: Post link (Telegram or YouTube)
         in: body
         name: request
         required: true
@@ -289,16 +399,17 @@ paths:
             type: object
       security:
       - ApiKeyAuth: []
-      summary: Add a new Telegram post for processing
+      summary: Add a new Telegram or YouTube link for processing
       tags:
       - media
   /api/v1/media/links:
     post:
       consumes:
       - application/json
-      description: Get list of all media files from a specific Telegram post
+      description: Get list of all media files from a specific Telegram post or YouTube
+        video
       parameters:
-      - description: Post link
+      - description: Content ID for post
         in: body
         name: request
         required: true
@@ -335,7 +446,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve list of all previously processed Telegram links
+      description: Retrieve list of all previously processed Telegram and YouTube
+        links
       parameters:
       - default: 1
         description: Page number

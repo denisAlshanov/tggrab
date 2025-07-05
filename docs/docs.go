@@ -25,6 +25,64 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/api/v1/media/get": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update media file metadata including filename and custom metadata",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Update media metadata",
+                "parameters": [
+                    {
+                        "description": "Media update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateMediaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateMediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -88,6 +146,64 @@ const docTemplate = `{
                     },
                     "416": {
                         "description": "Range Not Satisfiable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete media file from database and S3 storage",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Delete media file",
+                "parameters": [
+                    {
+                        "description": "Media delete request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteMediaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteMediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -170,7 +286,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Add a new Telegram post link to download media",
+                "description": "Add a new Telegram post link or YouTube video URL to download media. Automatically detects the platform and processes accordingly.",
                 "consumes": [
                     "application/json"
                 ],
@@ -180,10 +296,10 @@ const docTemplate = `{
                 "tags": [
                     "media"
                 ],
-                "summary": "Add a new Telegram post for processing",
+                "summary": "Add a new Telegram or YouTube link for processing",
                 "parameters": [
                     {
-                        "description": "Post link",
+                        "description": "Post link (Telegram or YouTube)",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -236,7 +352,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get list of all media files from a specific Telegram post",
+                "description": "Get list of all media files from a specific Telegram post or YouTube video",
                 "consumes": [
                     "application/json"
                 ],
@@ -249,7 +365,7 @@ const docTemplate = `{
                 "summary": "Get media files from a specific post",
                 "parameters": [
                     {
-                        "description": "Post link",
+                        "description": "Content ID for post",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -296,7 +412,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Retrieve list of all previously processed Telegram links",
+                "description": "Retrieve list of all previously processed Telegram and YouTube links",
                 "consumes": [
                     "application/json"
                 ],
@@ -475,13 +591,13 @@ const docTemplate = `{
         "models.AddPostResponse": {
             "type": "object",
             "properties": {
+                "content_id": {
+                    "type": "string"
+                },
                 "media_count": {
                     "type": "integer"
                 },
                 "message": {
-                    "type": "string"
-                },
-                "post_id": {
                     "type": "string"
                 },
                 "processing_status": {
@@ -492,13 +608,38 @@ const docTemplate = `{
                 }
             }
         },
+        "models.DeleteMediaRequest": {
+            "type": "object",
+            "required": [
+                "media_id"
+            ],
+            "properties": {
+                "media_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeleteMediaResponse": {
+            "type": "object",
+            "properties": {
+                "media_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "models.GetLinkListRequest": {
             "type": "object",
             "required": [
-                "link"
+                "content_id"
             ],
             "properties": {
-                "link": {
+                "content_id": {
                     "type": "string"
                 }
             }
@@ -506,13 +647,9 @@ const docTemplate = `{
         "models.GetLinkMediaRequest": {
             "type": "object",
             "required": [
-                "link",
                 "media_id"
             ],
             "properties": {
-                "link": {
-                    "type": "string"
-                },
                 "media_id": {
                     "type": "string"
                 }
@@ -521,15 +658,11 @@ const docTemplate = `{
         "models.GetLinkMediaURIRequest": {
             "type": "object",
             "required": [
-                "link",
                 "media_id"
             ],
             "properties": {
                 "expiry_minutes": {
                     "type": "integer"
-                },
-                "link": {
-                    "type": "string"
                 },
                 "media_id": {
                     "type": "string"
@@ -573,6 +706,9 @@ const docTemplate = `{
         "models.MediaListResponse": {
             "type": "object",
             "properties": {
+                "content_id": {
+                    "type": "string"
+                },
                 "link": {
                     "type": "string"
                 },
@@ -581,9 +717,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.MediaListItem"
                     }
-                },
-                "post_id": {
-                    "type": "string"
                 }
             }
         },
@@ -593,14 +726,14 @@ const docTemplate = `{
                 "added_at": {
                     "type": "string"
                 },
+                "content_id": {
+                    "type": "string"
+                },
                 "link": {
                     "type": "string"
                 },
                 "media_count": {
                     "type": "integer"
-                },
-                "post_id": {
-                    "type": "string"
                 },
                 "status": {
                     "$ref": "#/definitions/models.PostStatus"
@@ -641,6 +774,41 @@ const docTemplate = `{
                 "PostStatusCompleted",
                 "PostStatusFailed"
             ]
+        },
+        "models.UpdateMediaRequest": {
+            "type": "object",
+            "required": [
+                "media_id"
+            ],
+            "properties": {
+                "file_name": {
+                    "type": "string"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "original_file_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateMediaResponse": {
+            "type": "object",
+            "properties": {
+                "media_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {

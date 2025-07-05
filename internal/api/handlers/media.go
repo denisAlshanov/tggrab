@@ -15,6 +15,7 @@ import (
 	"github.com/denisAlshanov/stPlaner/internal/models"
 	"github.com/denisAlshanov/stPlaner/internal/services/storage"
 	"github.com/denisAlshanov/stPlaner/internal/services/telegram"
+	"github.com/denisAlshanov/stPlaner/internal/services/youtube"
 	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
@@ -22,23 +23,25 @@ type MediaHandler struct {
 	db       *database.PostgresDB
 	storage  storage.StorageInterface
 	telegram telegram.TelegramClient
+	youtube  youtube.YouTubeClient
 }
 
-func NewMediaHandler(db *database.PostgresDB, storage storage.StorageInterface, telegram telegram.TelegramClient) *MediaHandler {
+func NewMediaHandler(db *database.PostgresDB, storage storage.StorageInterface, telegram telegram.TelegramClient, youtube youtube.YouTubeClient) *MediaHandler {
 	return &MediaHandler{
 		db:       db,
 		storage:  storage,
 		telegram: telegram,
+		youtube:  youtube,
 	}
 }
 
 // GetLinkList godoc
 // @Summary Get media files from a specific post
-// @Description Get list of all media files from a specific Telegram post
+// @Description Get list of all media files from a specific Telegram post or YouTube video
 // @Tags media
 // @Accept json
 // @Produce json
-// @Param request body models.GetLinkListRequest true "Post link"
+// @Param request body models.GetLinkListRequest true "Content ID for post"
 // @Success 200 {object} models.MediaListResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
@@ -56,29 +59,20 @@ func (h *MediaHandler) GetLinkList(c *gin.Context) {
 		return
 	}
 
-	// Parse the link to get post ID
-	channelName, messageID, err := h.telegram.ParseTelegramLink(req.Link)
-	if err != nil {
-		h.errorResponse(c, utils.NewInvalidLinkError(req.Link))
-		return
-	}
-
-	postID := fmt.Sprintf("%s_%d", channelName, messageID)
-
-	// Find the post
-	post, err := h.db.GetPostByID(ctx, postID)
+	// Find the post by content ID
+	post, err := h.db.GetPostByContentID(ctx, req.ContentID)
 	if err != nil {
 		utils.LogError(ctx, "Failed to find post", err)
 		h.errorResponse(c, utils.NewDatabaseError(err))
 		return
 	}
 	if post == nil {
-		h.errorResponse(c, utils.NewPostNotFoundError(postID))
+		h.errorResponse(c, utils.NewPostNotFoundError(req.ContentID))
 		return
 	}
 
 	// Find media files for this post
-	mediaFiles, err := h.db.GetMediaByPostID(ctx, postID)
+	mediaFiles, err := h.db.GetMediaByContentID(ctx, req.ContentID)
 	if err != nil {
 		utils.LogError(ctx, "Failed to find media", err)
 		h.errorResponse(c, utils.NewDatabaseError(err))
@@ -98,7 +92,7 @@ func (h *MediaHandler) GetLinkList(c *gin.Context) {
 	}
 
 	response := models.MediaListResponse{
-		PostID:     post.PostID,
+		ContentID:  post.ContentID,
 		Link:       post.TelegramLink,
 		MediaFiles: mediaList,
 	}
@@ -163,7 +157,7 @@ func (h *MediaHandler) GetLinkMedia(c *gin.Context) {
 
 	// Check if this is a video file that might need range support
 	isVideo := strings.HasPrefix(media.FileType, "video/")
-	
+
 	// Handle range requests for video files
 	if isVideo {
 		h.handleVideoStream(c, ctx, media, fileSize, req.MediaID)
@@ -176,7 +170,7 @@ func (h *MediaHandler) GetLinkMedia(c *gin.Context) {
 func (h *MediaHandler) handleVideoStream(c *gin.Context, ctx context.Context, media *models.Media, fileSize int64, mediaID string) {
 	// Parse Range header for video streaming
 	rangeHeader := c.GetHeader("Range")
-	
+
 	if rangeHeader != "" {
 		// Handle range request (e.g., "bytes=0-1023")
 		h.handleRangeRequest(c, ctx, media, fileSize, rangeHeader, mediaID)
@@ -212,7 +206,7 @@ func (h *MediaHandler) handleFileStream(c *gin.Context, ctx context.Context, med
 		})
 		return
 	}
-	
+
 	utils.LogInfo(ctx, "Successfully streamed file", utils.Fields{
 		"media_id":      mediaID,
 		"bytes_written": written,
@@ -227,10 +221,10 @@ func (h *MediaHandler) streamFullVideo(c *gin.Context, ctx context.Context, medi
 	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", media.FileName))
-	
+
 	// Add cache headers for video
 	c.Header("Cache-Control", "public, max-age=3600")
-	
+
 	// Download from S3
 	reader, err := h.storage.Download(ctx, media.S3Key)
 	if err != nil {
@@ -249,7 +243,7 @@ func (h *MediaHandler) streamFullVideo(c *gin.Context, ctx context.Context, medi
 		})
 		return
 	}
-	
+
 	utils.LogInfo(ctx, "Successfully streamed video", utils.Fields{
 		"media_id":      mediaID,
 		"bytes_written": written,
@@ -267,7 +261,7 @@ func (h *MediaHandler) handleRangeRequest(c *gin.Context, ctx context.Context, m
 
 	rangeSpec := strings.TrimPrefix(rangeHeader, "bytes=")
 	parts := strings.Split(rangeSpec, "-")
-	
+
 	if len(parts) != 2 {
 		c.Status(http.StatusRequestedRangeNotSatisfiable)
 		return
@@ -344,7 +338,7 @@ func (h *MediaHandler) handleRangeRequest(c *gin.Context, ctx context.Context, m
 		})
 		return
 	}
-	
+
 	utils.LogInfo(ctx, "Successfully streamed video range", utils.Fields{
 		"media_id":      mediaID,
 		"bytes_written": written,
@@ -409,6 +403,137 @@ func (h *MediaHandler) GetLinkMediaURI(c *gin.Context) {
 		MediaID:   media.MediaID,
 		S3URL:     presignedURL,
 		ExpiresAt: time.Now().Add(expiry),
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// UpdateLinkMedia godoc
+// @Summary Update media metadata
+// @Description Update media file metadata including filename and custom metadata
+// @Tags media
+// @Accept json
+// @Produce json
+// @Param request body models.UpdateMediaRequest true "Media update request"
+// @Success 200 {object} models.UpdateMediaResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/media/get [put]
+// @Security ApiKeyAuth
+func (h *MediaHandler) UpdateLinkMedia(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req models.UpdateMediaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errorResponse(c, utils.NewValidationError("Invalid request body", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	// Find the media file
+	media, err := h.db.GetMediaByID(ctx, req.MediaID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to find media", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+	if media == nil {
+		h.errorResponse(c, utils.NewMediaNotFoundError(req.MediaID))
+		return
+	}
+
+	// Update fields if provided
+	if req.FileName != nil {
+		media.FileName = *req.FileName
+	}
+	if req.OriginalFileName != nil {
+		media.OriginalFileName = *req.OriginalFileName
+	}
+	if req.Metadata != nil {
+		// Merge metadata instead of replacing completely
+		if media.Metadata == nil {
+			media.Metadata = make(map[string]interface{})
+		}
+		for key, value := range req.Metadata {
+			media.Metadata[key] = value
+		}
+	}
+
+	// Update in database
+	if err := h.db.UpdateMedia(ctx, media); err != nil {
+		utils.LogError(ctx, "Failed to update media", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+
+	response := models.UpdateMediaResponse{
+		Status:  "success",
+		Message: "Media updated successfully",
+		MediaID: media.MediaID,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// DeleteLinkMedia godoc
+// @Summary Delete media file
+// @Description Delete media file from database and S3 storage
+// @Tags media
+// @Accept json
+// @Produce json
+// @Param request body models.DeleteMediaRequest true "Media delete request"
+// @Success 200 {object} models.DeleteMediaResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/media/get [delete]
+// @Security ApiKeyAuth
+func (h *MediaHandler) DeleteLinkMedia(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req models.DeleteMediaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errorResponse(c, utils.NewValidationError("Invalid request body", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	// Find the media file first to get S3 info
+	media, err := h.db.GetMediaByID(ctx, req.MediaID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to find media", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+	if media == nil {
+		h.errorResponse(c, utils.NewMediaNotFoundError(req.MediaID))
+		return
+	}
+
+	// Delete from S3 first
+	if err := h.storage.Delete(ctx, media.S3Key); err != nil {
+		utils.LogError(ctx, "Failed to delete from S3", err, utils.Fields{
+			"s3_key":   media.S3Key,
+			"media_id": req.MediaID,
+		})
+		// Continue with database deletion even if S3 deletion fails
+		// Log the error but don't fail the entire operation
+	}
+
+	// Delete from database
+	if err := h.db.DeleteMedia(ctx, req.MediaID); err != nil {
+		utils.LogError(ctx, "Failed to delete media from database", err)
+		h.errorResponse(c, utils.NewDatabaseError(err))
+		return
+	}
+
+	response := models.DeleteMediaResponse{
+		Status:  "success",
+		Message: "Media deleted successfully",
+		MediaID: req.MediaID,
 	}
 
 	c.JSON(http.StatusOK, response)
