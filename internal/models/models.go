@@ -200,6 +200,7 @@ type Show struct {
 	FirstEventDate   time.Time              `json:"first_event_date" db:"first_event_date"`
 	RepeatPattern    RepeatPattern          `json:"repeat_pattern" db:"repeat_pattern"`
 	SchedulingConfig *SchedulingConfig      `json:"scheduling_config,omitempty" db:"scheduling_config"`
+	Version          int                    `json:"version" db:"version"`
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
 	Status           ShowStatus             `json:"status" db:"status"`
@@ -303,4 +304,245 @@ type ShowEvent struct {
 	Date          string    `json:"date"`
 	StartDateTime time.Time `json:"start_datetime"`
 	EndDateTime   time.Time `json:"end_datetime"`
+}
+
+// Calendar Event System Models
+
+type EventStatus string
+
+const (
+	EventStatusScheduled EventStatus = "scheduled"
+	EventStatusLive      EventStatus = "live"
+	EventStatusCompleted EventStatus = "completed"
+	EventStatusCancelled EventStatus = "cancelled"
+	EventStatusPostponed EventStatus = "postponed"
+)
+
+type Event struct {
+	ID                uuid.UUID              `json:"id" db:"id"`
+	ShowID            uuid.UUID              `json:"show_id" db:"show_id"`
+	UserID            uuid.UUID              `json:"user_id" db:"user_id"`
+	
+	// Event details (can override show defaults)
+	EventTitle        *string                `json:"event_title,omitempty" db:"event_title"`
+	EventDescription  *string                `json:"event_description,omitempty" db:"event_description"`
+	YouTubeKey        *string                `json:"youtube_key,omitempty" db:"youtube_key"`
+	AdditionalKey     *string                `json:"additional_key,omitempty" db:"additional_key"`
+	ZoomMeetingURL    *string                `json:"zoom_meeting_url,omitempty" db:"zoom_meeting_url"`
+	ZoomMeetingID     *string                `json:"zoom_meeting_id,omitempty" db:"zoom_meeting_id"`
+	ZoomPasscode      *string                `json:"zoom_passcode,omitempty" db:"zoom_passcode"`
+	
+	// Timing (can override show defaults)
+	StartDateTime     time.Time              `json:"start_datetime" db:"start_datetime"`
+	LengthMinutes     *int                   `json:"length_minutes,omitempty" db:"length_minutes"`
+	EndDateTime       time.Time              `json:"end_datetime" db:"end_datetime"`
+	
+	// Event metadata
+	Status            EventStatus            `json:"status" db:"status"`
+	IsCustomized      bool                   `json:"is_customized" db:"is_customized"`
+	CustomFields      map[string]interface{} `json:"custom_fields,omitempty" db:"custom_fields"`
+	
+	// Generation tracking
+	GeneratedAt       time.Time              `json:"generated_at" db:"generated_at"`
+	LastSyncedAt      *time.Time             `json:"last_synced_at,omitempty" db:"last_synced_at"`
+	ShowVersion       int                    `json:"show_version" db:"show_version"`
+	
+	// Audit fields
+	CreatedAt         time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time              `json:"updated_at" db:"updated_at"`
+}
+
+type EventGenerationLog struct {
+	ID              uuid.UUID `json:"id" db:"id"`
+	ShowID          uuid.UUID `json:"show_id" db:"show_id"`
+	GenerationDate  time.Time `json:"generation_date" db:"generation_date"`
+	EventsGenerated int       `json:"events_generated" db:"events_generated"`
+	GeneratedUntil  time.Time `json:"generated_until" db:"generated_until"`
+	TriggerReason   string    `json:"trigger_reason" db:"trigger_reason"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+}
+
+// Event API Request/Response Types
+
+type UpdateEventRequest struct {
+	EventID          string                 `json:"event_id" binding:"required,uuid"`
+	EventTitle       *string                `json:"event_title,omitempty"`
+	EventDescription *string                `json:"event_description,omitempty"`
+	StartDateTime    *time.Time             `json:"start_datetime,omitempty"`
+	LengthMinutes    *int                   `json:"length_minutes,omitempty"`
+	YouTubeKey       *string                `json:"youtube_key,omitempty"`
+	AdditionalKey    *string                `json:"additional_key,omitempty"`
+	ZoomMeetingURL   *string                `json:"zoom_meeting_url,omitempty"`
+	ZoomMeetingID    *string                `json:"zoom_meeting_id,omitempty"`
+	ZoomPasscode     *string                `json:"zoom_passcode,omitempty"`
+	CustomFields     map[string]interface{} `json:"custom_fields,omitempty"`
+}
+
+type UpdateEventResponse struct {
+	Success bool   `json:"success"`
+	Data    *Event `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type DeleteEventRequest struct {
+	EventID            string `json:"event_id" binding:"required,uuid"`
+	CancellationReason string `json:"cancellation_reason,omitempty"`
+}
+
+type DeleteEventResponse struct {
+	Success     bool      `json:"success"`
+	Message     string    `json:"message,omitempty"`
+	Data        *EventDeleteData `json:"data,omitempty"`
+	Error       string    `json:"error,omitempty"`
+}
+
+type EventDeleteData struct {
+	EventID     string      `json:"event_id"`
+	Status      EventStatus `json:"status"`
+	CancelledAt time.Time   `json:"cancelled_at"`
+}
+
+type EventListRequest struct {
+	Filters    EventFilters      `json:"filters,omitempty"`
+	Pagination PaginationOptions `json:"pagination,omitempty"`
+	Sort       EventSortOptions  `json:"sort,omitempty"`
+}
+
+type EventFilters struct {
+	Status       []EventStatus `json:"status,omitempty"`
+	ShowIDs      []string      `json:"show_ids,omitempty"`
+	DateRange    *DateRange    `json:"date_range,omitempty"`
+	IsCustomized *bool         `json:"is_customized,omitempty"`
+}
+
+type DateRange struct {
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
+}
+
+type EventSortOptions struct {
+	Field string `json:"field,omitempty"`
+	Order string `json:"order,omitempty"`
+}
+
+type EventListResponse struct {
+	Success bool          `json:"success"`
+	Data    *EventListData `json:"data,omitempty"`
+	Error   string        `json:"error,omitempty"`
+}
+
+type EventListData struct {
+	Events     []EventListItem    `json:"events"`
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+type EventListItem struct {
+	ID              uuid.UUID   `json:"id"`
+	ShowID          uuid.UUID   `json:"show_id"`
+	ShowName        string      `json:"show_name"`
+	EventTitle      *string     `json:"event_title,omitempty"`
+	StartDateTime   time.Time   `json:"start_datetime"`
+	EndDateTime     time.Time   `json:"end_datetime"`
+	Status          EventStatus `json:"status"`
+	IsCustomized    bool        `json:"is_customized"`
+	HasZoomMeeting  bool        `json:"has_zoom_meeting"`
+}
+
+type WeekListRequest struct {
+	WeekStart string       `json:"week_start" binding:"required"`
+	Timezone  string       `json:"timezone,omitempty"`
+	Filters   EventFilters `json:"filters,omitempty"`
+}
+
+type WeekListResponse struct {
+	Success bool         `json:"success"`
+	Data    *WeekListData `json:"data,omitempty"`
+	Error   string       `json:"error,omitempty"`
+}
+
+type WeekListData struct {
+	WeekStart    string        `json:"week_start"`
+	WeekEnd      string        `json:"week_end"`
+	Timezone     string        `json:"timezone"`
+	Days         []WeekDay     `json:"days"`
+	TotalEvents  int           `json:"total_events"`
+}
+
+type WeekDay struct {
+	Date     string            `json:"date"`
+	DayName  string            `json:"day_name"`
+	Events   []WeekDayEvent    `json:"events"`
+}
+
+type WeekDayEvent struct {
+	ID           uuid.UUID   `json:"id"`
+	ShowName     string      `json:"show_name"`
+	EventTitle   *string     `json:"event_title,omitempty"`
+	StartTime    string      `json:"start_time"`
+	EndTime      string      `json:"end_time"`
+	Status       EventStatus `json:"status"`
+	IsCustomized bool        `json:"is_customized"`
+}
+
+type MonthListRequest struct {
+	Year     int          `json:"year" binding:"required,min=2020,max=2030"`
+	Month    int          `json:"month" binding:"required,min=1,max=12"`
+	Timezone string       `json:"timezone,omitempty"`
+	Filters  EventFilters `json:"filters,omitempty"`
+}
+
+type MonthListResponse struct {
+	Success bool           `json:"success"`
+	Data    *MonthListData `json:"data,omitempty"`
+	Error   string         `json:"error,omitempty"`
+}
+
+type MonthListData struct {
+	Year           int                       `json:"year"`
+	Month          int                       `json:"month"`
+	MonthName      string                    `json:"month_name"`
+	Timezone       string                    `json:"timezone"`
+	Weeks          []MonthWeek               `json:"weeks"`
+	TotalEvents    int                       `json:"total_events"`
+	EventsByStatus map[EventStatus]int       `json:"events_by_status"`
+}
+
+type MonthWeek struct {
+	WeekNumber int        `json:"week_number"`
+	Days       []MonthDay `json:"days"`
+}
+
+type MonthDay struct {
+	Date             string           `json:"date"`
+	DayNumber        int              `json:"day_number"`
+	IsCurrentMonth   bool             `json:"is_current_month"`
+	EventsCount      int              `json:"events_count"`
+	Events           []MonthDayEvent  `json:"events"`
+}
+
+type MonthDayEvent struct {
+	ID              uuid.UUID   `json:"id"`
+	ShowName        string      `json:"show_name"`
+	StartTime       string      `json:"start_time"`
+	DurationMinutes int         `json:"duration_minutes"`
+	Status          EventStatus `json:"status"`
+	IsCustomized    bool        `json:"is_customized"`
+}
+
+type GetEventInfoResponse struct {
+	Success bool           `json:"success"`
+	Data    *EventInfoData `json:"data,omitempty"`
+	Error   string         `json:"error,omitempty"`
+}
+
+type EventInfoData struct {
+	Event       *Event      `json:"event"`
+	ShowDetails *ShowSummary `json:"show_details"`
+}
+
+type ShowSummary struct {
+	ID            uuid.UUID     `json:"id"`
+	ShowName      string        `json:"show_name"`
+	RepeatPattern RepeatPattern `json:"repeat_pattern"`
+	Status        ShowStatus    `json:"status"`
 }

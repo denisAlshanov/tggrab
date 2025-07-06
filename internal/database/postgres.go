@@ -349,6 +349,107 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 				END $$;
 			`,
 		},
+		{
+			Version:     7,
+			Description: "Add events and event_generation_logs tables for calendar system",
+			SQL: `
+				-- Add version column to shows table if not exists
+				DO $$ 
+				BEGIN
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'shows' AND column_name = 'version') THEN
+						ALTER TABLE shows ADD COLUMN version INTEGER DEFAULT 1;
+						-- Update existing shows to have version 1
+						UPDATE shows SET version = 1 WHERE version IS NULL;
+						ALTER TABLE shows ALTER COLUMN version SET NOT NULL;
+					END IF;
+				END $$;
+
+				-- Create event status enum
+				DO $$ BEGIN
+					CREATE TYPE event_status AS ENUM ('scheduled', 'live', 'completed', 'cancelled', 'postponed');
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Create events table
+				CREATE TABLE IF NOT EXISTS events (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					show_id UUID NOT NULL,
+					user_id UUID NOT NULL,
+					
+					-- Event details (nullable = uses show defaults)
+					event_title VARCHAR(500),
+					event_description TEXT,
+					youtube_key VARCHAR(500),
+					additional_key VARCHAR(500),
+					zoom_meeting_url VARCHAR(500),
+					zoom_meeting_id VARCHAR(100),
+					zoom_passcode VARCHAR(50),
+					
+					-- Timing
+					start_datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+					length_minutes INTEGER,
+					end_datetime TIMESTAMP WITH TIME ZONE NOT NULL,
+					
+					-- Event metadata
+					status event_status DEFAULT 'scheduled',
+					is_customized BOOLEAN DEFAULT FALSE,
+					custom_fields JSONB,
+					
+					-- Generation tracking
+					generated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					last_synced_at TIMESTAMP WITH TIME ZONE,
+					show_version INTEGER DEFAULT 1,
+					
+					-- Audit fields
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					
+					-- Foreign keys
+					FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE CASCADE,
+					
+					-- Constraints
+					CONSTRAINT valid_event_timing CHECK (end_datetime > start_datetime),
+					CONSTRAINT valid_length CHECK (length_minutes IS NULL OR length_minutes > 0)
+				);
+
+				-- Create indexes for events table
+				CREATE INDEX IF NOT EXISTS idx_events_show_id ON events(show_id);
+				CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
+				CREATE INDEX IF NOT EXISTS idx_events_start_datetime ON events(start_datetime);
+				CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
+				CREATE INDEX IF NOT EXISTS idx_events_date_range ON events(start_datetime, end_datetime);
+				CREATE INDEX IF NOT EXISTS idx_events_user_status ON events(user_id, status);
+				CREATE INDEX IF NOT EXISTS idx_events_customized ON events(is_customized);
+				CREATE INDEX IF NOT EXISTS idx_events_show_version ON events(show_id, show_version);
+
+				-- Create event generation logs table
+				CREATE TABLE IF NOT EXISTS event_generation_logs (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					show_id UUID NOT NULL,
+					generation_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					events_generated INTEGER NOT NULL,
+					generated_until TIMESTAMP WITH TIME ZONE NOT NULL,
+					trigger_reason VARCHAR(100) NOT NULL,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					
+					FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE CASCADE
+				);
+
+				-- Create indexes for event generation logs
+				CREATE INDEX IF NOT EXISTS idx_generation_logs_show_id ON event_generation_logs(show_id);
+				CREATE INDEX IF NOT EXISTS idx_generation_logs_date ON event_generation_logs(generation_date);
+				CREATE INDEX IF NOT EXISTS idx_generation_logs_trigger ON event_generation_logs(trigger_reason);
+
+				-- Create update trigger for events
+				DROP TRIGGER IF EXISTS update_events_updated_at ON events;
+				CREATE TRIGGER update_events_updated_at 
+				BEFORE UPDATE ON events
+				FOR EACH ROW 
+				EXECUTE FUNCTION update_updated_at_column();
+			`,
+		},
 	}
 
 	// Run each migration if not already applied
@@ -1050,4 +1151,580 @@ func (p *PostgresDB) UpdateShow(ctx context.Context, show *models.Show) error {
 		show.FirstEventDate, show.RepeatPattern, schedulingConfigJSON, show.Status, metadataJSON,
 	)
 	return err
+}
+
+// Event operations
+
+func (p *PostgresDB) CreateEvent(ctx context.Context, event *models.Event) error {
+	event.ID = uuid.New()
+	event.CreatedAt = time.Now()
+	event.UpdatedAt = time.Now()
+	event.GeneratedAt = time.Now()
+
+	// Convert custom fields to JSON
+	var customFieldsJSON []byte
+	var err error
+	if event.CustomFields != nil {
+		customFieldsJSON, err = json.Marshal(event.CustomFields)
+		if err != nil {
+			return fmt.Errorf("failed to marshal custom fields: %w", err)
+		}
+	}
+
+	query := `
+		INSERT INTO events (id, show_id, user_id, event_title, event_description, 
+			youtube_key, additional_key, zoom_meeting_url, zoom_meeting_id, zoom_passcode,
+			start_datetime, length_minutes, end_datetime, status, is_customized, 
+			custom_fields, generated_at, last_synced_at, show_version, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		RETURNING id, created_at, updated_at, generated_at`
+
+	err = p.pool.QueryRow(ctx, query,
+		event.ID, event.ShowID, event.UserID, event.EventTitle, event.EventDescription,
+		event.YouTubeKey, event.AdditionalKey, event.ZoomMeetingURL, event.ZoomMeetingID, event.ZoomPasscode,
+		event.StartDateTime, event.LengthMinutes, event.EndDateTime, event.Status, event.IsCustomized,
+		customFieldsJSON, event.GeneratedAt, event.LastSyncedAt, event.ShowVersion, event.CreatedAt, event.UpdatedAt,
+	).Scan(&event.ID, &event.CreatedAt, &event.UpdatedAt, &event.GeneratedAt)
+
+	return err
+}
+
+func (p *PostgresDB) CreateEvents(ctx context.Context, events []models.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	// Use a transaction for batch insert
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+		INSERT INTO events (id, show_id, user_id, event_title, event_description, 
+			youtube_key, additional_key, zoom_meeting_url, zoom_meeting_id, zoom_passcode,
+			start_datetime, length_minutes, end_datetime, status, is_customized, 
+			custom_fields, generated_at, last_synced_at, show_version, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`
+
+	for i := range events {
+		event := &events[i]
+		event.ID = uuid.New()
+		event.CreatedAt = time.Now()
+		event.UpdatedAt = time.Now()
+		if event.GeneratedAt.IsZero() {
+			event.GeneratedAt = time.Now()
+		}
+
+		// Convert custom fields to JSON
+		var customFieldsJSON []byte
+		if event.CustomFields != nil {
+			customFieldsJSON, err = json.Marshal(event.CustomFields)
+			if err != nil {
+				return fmt.Errorf("failed to marshal custom fields: %w", err)
+			}
+		}
+
+		_, err = tx.Exec(ctx, query,
+			event.ID, event.ShowID, event.UserID, event.EventTitle, event.EventDescription,
+			event.YouTubeKey, event.AdditionalKey, event.ZoomMeetingURL, event.ZoomMeetingID, event.ZoomPasscode,
+			event.StartDateTime, event.LengthMinutes, event.EndDateTime, event.Status, event.IsCustomized,
+			customFieldsJSON, event.GeneratedAt, event.LastSyncedAt, event.ShowVersion, event.CreatedAt, event.UpdatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert event %d: %w", i, err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (p *PostgresDB) GetEventByID(ctx context.Context, eventID uuid.UUID) (*models.Event, error) {
+	event := &models.Event{}
+	var customFieldsJSON []byte
+
+	query := `
+		SELECT id, show_id, user_id, event_title, event_description, 
+			youtube_key, additional_key, zoom_meeting_url, zoom_meeting_id, zoom_passcode,
+			start_datetime, length_minutes, end_datetime, status, is_customized, 
+			custom_fields, generated_at, last_synced_at, show_version, created_at, updated_at
+		FROM events WHERE id = $1`
+
+	err := p.pool.QueryRow(ctx, query, eventID).Scan(
+		&event.ID, &event.ShowID, &event.UserID, &event.EventTitle, &event.EventDescription,
+		&event.YouTubeKey, &event.AdditionalKey, &event.ZoomMeetingURL, &event.ZoomMeetingID, &event.ZoomPasscode,
+		&event.StartDateTime, &event.LengthMinutes, &event.EndDateTime, &event.Status, &event.IsCustomized,
+		&customFieldsJSON, &event.GeneratedAt, &event.LastSyncedAt, &event.ShowVersion, &event.CreatedAt, &event.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal custom fields if present
+	if len(customFieldsJSON) > 0 {
+		if err := json.Unmarshal(customFieldsJSON, &event.CustomFields); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal custom fields: %w", err)
+		}
+	}
+
+	return event, nil
+}
+
+func (p *PostgresDB) UpdateEvent(ctx context.Context, event *models.Event) error {
+	// Convert custom fields to JSON
+	var customFieldsJSON []byte
+	var err error
+	if event.CustomFields != nil {
+		customFieldsJSON, err = json.Marshal(event.CustomFields)
+		if err != nil {
+			return fmt.Errorf("failed to marshal custom fields: %w", err)
+		}
+	}
+
+	query := `
+		UPDATE events SET 
+			event_title = $2, event_description = $3, youtube_key = $4, additional_key = $5,
+			zoom_meeting_url = $6, zoom_meeting_id = $7, zoom_passcode = $8,
+			start_datetime = $9, length_minutes = $10, end_datetime = $11,
+			status = $12, is_customized = $13, custom_fields = $14, last_synced_at = $15
+		WHERE id = $1`
+
+	now := time.Now()
+	_, err = p.pool.Exec(ctx, query,
+		event.ID, event.EventTitle, event.EventDescription, event.YouTubeKey, event.AdditionalKey,
+		event.ZoomMeetingURL, event.ZoomMeetingID, event.ZoomPasscode,
+		event.StartDateTime, event.LengthMinutes, event.EndDateTime,
+		event.Status, event.IsCustomized, customFieldsJSON, &now,
+	)
+	return err
+}
+
+func (p *PostgresDB) DeleteEvent(ctx context.Context, eventID uuid.UUID) error {
+	// Soft delete by updating status to cancelled
+	query := `UPDATE events SET status = $2 WHERE id = $1`
+	
+	result, err := p.pool.Exec(ctx, query, eventID, models.EventStatusCancelled)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("no event found with ID: %s", eventID)
+	}
+
+	return nil
+}
+
+func (p *PostgresDB) GetEventsByShowID(ctx context.Context, showID uuid.UUID) ([]models.Event, error) {
+	query := `
+		SELECT id, show_id, user_id, event_title, event_description, 
+			youtube_key, additional_key, zoom_meeting_url, zoom_meeting_id, zoom_passcode,
+			start_datetime, length_minutes, end_datetime, status, is_customized, 
+			custom_fields, generated_at, last_synced_at, show_version, created_at, updated_at
+		FROM events 
+		WHERE show_id = $1
+		ORDER BY start_datetime ASC`
+
+	rows, err := p.pool.Query(ctx, query, showID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return p.scanEvents(rows)
+}
+
+func (p *PostgresDB) GetFutureEvents(ctx context.Context, showID uuid.UUID) ([]models.Event, error) {
+	query := `
+		SELECT id, show_id, user_id, event_title, event_description, 
+			youtube_key, additional_key, zoom_meeting_url, zoom_meeting_id, zoom_passcode,
+			start_datetime, length_minutes, end_datetime, status, is_customized, 
+			custom_fields, generated_at, last_synced_at, show_version, created_at, updated_at
+		FROM events 
+		WHERE show_id = $1 AND start_datetime > $2 AND status != $3
+		ORDER BY start_datetime ASC`
+
+	rows, err := p.pool.Query(ctx, query, showID, time.Now(), models.EventStatusCancelled)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return p.scanEvents(rows)
+}
+
+func (p *PostgresDB) ListEvents(ctx context.Context, userID uuid.UUID, filters models.EventFilters, pagination models.PaginationOptions, sort models.EventSortOptions) ([]models.EventListItem, int, error) {
+	// Set defaults
+	if pagination.Limit <= 0 {
+		pagination.Limit = 20
+	}
+	if pagination.Page <= 0 {
+		pagination.Page = 1
+	}
+	offset := (pagination.Page - 1) * pagination.Limit
+
+	// Build where clause
+	whereConditions := []string{"e.user_id = $1"}
+	args := []interface{}{userID}
+	argCount := 1
+
+	// Status filter
+	if len(filters.Status) > 0 {
+		statusPlaceholders := make([]string, len(filters.Status))
+		for i, status := range filters.Status {
+			argCount++
+			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, status)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("e.status IN (%s)", strings.Join(statusPlaceholders, ",")))
+	}
+
+	// Show IDs filter
+	if len(filters.ShowIDs) > 0 {
+		showPlaceholders := make([]string, len(filters.ShowIDs))
+		for i, showID := range filters.ShowIDs {
+			argCount++
+			showPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, showID)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("e.show_id IN (%s)", strings.Join(showPlaceholders, ",")))
+	}
+
+	// Date range filter
+	if filters.DateRange != nil {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("e.start_datetime >= $%d", argCount))
+		args = append(args, filters.DateRange.Start)
+		
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("e.start_datetime <= $%d", argCount))
+		args = append(args, filters.DateRange.End)
+	}
+
+	// Customization filter
+	if filters.IsCustomized != nil {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("e.is_customized = $%d", argCount))
+		args = append(args, *filters.IsCustomized)
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM events e 
+		JOIN shows s ON e.show_id = s.id 
+		WHERE %s`, whereClause)
+	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build order by clause
+	orderBy := "e.start_datetime ASC" // default
+	if sort.Field != "" {
+		allowedFields := map[string]bool{
+			"start_datetime": true,
+			"end_datetime":   true,
+			"status":         true,
+			"created_at":     true,
+		}
+		if allowedFields[sort.Field] {
+			order := "ASC"
+			if strings.ToUpper(sort.Order) == "DESC" {
+				order = "DESC"
+			}
+			orderBy = fmt.Sprintf("e.%s %s", sort.Field, order)
+		}
+	}
+
+	// Get events
+	query := fmt.Sprintf(`
+		SELECT e.id, e.show_id, s.show_name, e.event_title, e.start_datetime, e.end_datetime,
+			e.status, e.is_customized, 
+			CASE WHEN s.zoom_meeting_url IS NOT NULL OR e.zoom_meeting_url IS NOT NULL THEN true ELSE false END as has_zoom_meeting
+		FROM events e 
+		JOIN shows s ON e.show_id = s.id 
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
+
+	args = append(args, pagination.Limit, offset)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var events []models.EventListItem
+	for rows.Next() {
+		var event models.EventListItem
+		err := rows.Scan(
+			&event.ID, &event.ShowID, &event.ShowName, &event.EventTitle,
+			&event.StartDateTime, &event.EndDateTime, &event.Status,
+			&event.IsCustomized, &event.HasZoomMeeting,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		events = append(events, event)
+	}
+
+	return events, total, nil
+}
+
+func (p *PostgresDB) GetWeekEvents(ctx context.Context, userID uuid.UUID, weekStart time.Time, filters models.EventFilters) ([]models.WeekDayEvent, error) {
+	weekEnd := weekStart.AddDate(0, 0, 7)
+
+	// Build where clause
+	whereConditions := []string{"e.user_id = $1", "e.start_datetime >= $2", "e.start_datetime < $3"}
+	args := []interface{}{userID, weekStart, weekEnd}
+	argCount := 3
+
+	// Add additional filters similar to ListEvents
+	if len(filters.Status) > 0 {
+		statusPlaceholders := make([]string, len(filters.Status))
+		for i, status := range filters.Status {
+			argCount++
+			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, status)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("e.status IN (%s)", strings.Join(statusPlaceholders, ",")))
+	}
+
+	if len(filters.ShowIDs) > 0 {
+		showPlaceholders := make([]string, len(filters.ShowIDs))
+		for i, showID := range filters.ShowIDs {
+			argCount++
+			showPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, showID)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("e.show_id IN (%s)", strings.Join(showPlaceholders, ",")))
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	query := fmt.Sprintf(`
+		SELECT e.id, s.show_name, e.event_title, e.start_datetime, e.end_datetime, e.status, e.is_customized
+		FROM events e 
+		JOIN shows s ON e.show_id = s.id 
+		WHERE %s
+		ORDER BY e.start_datetime ASC`, whereClause)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []models.WeekDayEvent
+	for rows.Next() {
+		var event models.WeekDayEvent
+		var startTime, endTime time.Time
+		err := rows.Scan(
+			&event.ID, &event.ShowName, &event.EventTitle,
+			&startTime, &endTime, &event.Status, &event.IsCustomized,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Format times
+		event.StartTime = startTime.Format("15:04")
+		event.EndTime = endTime.Format("15:04")
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+func (p *PostgresDB) GetMonthEvents(ctx context.Context, userID uuid.UUID, year int, month int, filters models.EventFilters) ([]models.MonthDayEvent, error) {
+	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	monthEnd := monthStart.AddDate(0, 1, 0)
+
+	// Build where clause similar to GetWeekEvents
+	whereConditions := []string{"e.user_id = $1", "e.start_datetime >= $2", "e.start_datetime < $3"}
+	args := []interface{}{userID, monthStart, monthEnd}
+	argCount := 3
+
+	if len(filters.Status) > 0 {
+		statusPlaceholders := make([]string, len(filters.Status))
+		for i, status := range filters.Status {
+			argCount++
+			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, status)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("e.status IN (%s)", strings.Join(statusPlaceholders, ",")))
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	query := fmt.Sprintf(`
+		SELECT e.id, s.show_name, e.start_datetime, e.length_minutes, e.status, e.is_customized, s.length_minutes
+		FROM events e 
+		JOIN shows s ON e.show_id = s.id 
+		WHERE %s
+		ORDER BY e.start_datetime ASC`, whereClause)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []models.MonthDayEvent
+	for rows.Next() {
+		var event models.MonthDayEvent
+		var startTime time.Time
+		var eventDuration *int
+		var showDuration int
+		err := rows.Scan(
+			&event.ID, &event.ShowName, &startTime,
+			&eventDuration, &event.Status, &event.IsCustomized, &showDuration,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Use event duration if available, otherwise show duration
+		if eventDuration != nil {
+			event.DurationMinutes = *eventDuration
+		} else {
+			event.DurationMinutes = showDuration
+		}
+
+		event.StartTime = startTime.Format("15:04")
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+// Helper function to scan events from rows
+func (p *PostgresDB) scanEvents(rows pgx.Rows) ([]models.Event, error) {
+	var events []models.Event
+	for rows.Next() {
+		var event models.Event
+		var customFieldsJSON []byte
+
+		err := rows.Scan(
+			&event.ID, &event.ShowID, &event.UserID, &event.EventTitle, &event.EventDescription,
+			&event.YouTubeKey, &event.AdditionalKey, &event.ZoomMeetingURL, &event.ZoomMeetingID, &event.ZoomPasscode,
+			&event.StartDateTime, &event.LengthMinutes, &event.EndDateTime, &event.Status, &event.IsCustomized,
+			&customFieldsJSON, &event.GeneratedAt, &event.LastSyncedAt, &event.ShowVersion, &event.CreatedAt, &event.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Unmarshal custom fields if present
+		if len(customFieldsJSON) > 0 {
+			if err := json.Unmarshal(customFieldsJSON, &event.CustomFields); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal custom fields: %w", err)
+			}
+		}
+
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+// Event generation log operations
+
+func (p *PostgresDB) CreateEventGenerationLog(ctx context.Context, log *models.EventGenerationLog) error {
+	log.ID = uuid.New()
+	log.CreatedAt = time.Now()
+	if log.GenerationDate.IsZero() {
+		log.GenerationDate = time.Now()
+	}
+
+	query := `
+		INSERT INTO event_generation_logs (id, show_id, generation_date, events_generated, 
+			generated_until, trigger_reason, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at`
+
+	err := p.pool.QueryRow(ctx, query,
+		log.ID, log.ShowID, log.GenerationDate, log.EventsGenerated,
+		log.GeneratedUntil, log.TriggerReason, log.CreatedAt,
+	).Scan(&log.ID, &log.CreatedAt)
+
+	return err
+}
+
+func (p *PostgresDB) GetLastGenerationDate(ctx context.Context, showID uuid.UUID) (time.Time, error) {
+	var lastDate time.Time
+	query := `
+		SELECT generated_until 
+		FROM event_generation_logs 
+		WHERE show_id = $1 
+		ORDER BY generation_date DESC 
+		LIMIT 1`
+
+	err := p.pool.QueryRow(ctx, query, showID).Scan(&lastDate)
+	if err == pgx.ErrNoRows {
+		// Return zero time if no logs found
+		return time.Time{}, nil
+	}
+	return lastDate, err
+}
+
+func (p *PostgresDB) GetActiveShows(ctx context.Context) ([]models.Show, error) {
+	query := `
+		SELECT id, show_name, youtube_key, additional_key, zoom_meeting_url, 
+			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
+			repeat_pattern, scheduling_config, version, created_at, updated_at, status, user_id, metadata
+		FROM shows 
+		WHERE status = $1
+		ORDER BY created_at ASC`
+
+	rows, err := p.pool.Query(ctx, query, models.ShowStatusActive)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var shows []models.Show
+	for rows.Next() {
+		var show models.Show
+		var metadataJSON []byte
+		var schedulingConfigJSON []byte
+
+		err := rows.Scan(
+			&show.ID, &show.ShowName, &show.YouTubeKey, &show.AdditionalKey, &show.ZoomMeetingURL,
+			&show.ZoomMeetingID, &show.ZoomPasscode, &show.StartTime, &show.LengthMinutes, &show.FirstEventDate,
+			&show.RepeatPattern, &schedulingConfigJSON, &show.Version, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Unmarshal metadata if present
+		if len(metadataJSON) > 0 {
+			if err := json.Unmarshal(metadataJSON, &show.Metadata); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+			}
+		}
+
+		// Unmarshal scheduling config if present
+		if len(schedulingConfigJSON) > 0 {
+			show.SchedulingConfig = &models.SchedulingConfig{}
+			if err := json.Unmarshal(schedulingConfigJSON, show.SchedulingConfig); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal scheduling config: %w", err)
+			}
+		}
+
+		shows = append(shows, show)
+	}
+
+	return shows, nil
 }

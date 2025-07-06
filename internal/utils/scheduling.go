@@ -387,3 +387,179 @@ func ValidateSchedulingConfig(pattern models.RepeatPattern, config *models.Sched
 	
 	return nil
 }
+
+// Event Generation Functions
+
+// GenerateEventsForShow generates concrete events from a show template for the next 3 months
+func GenerateEventsForShow(show *models.Show, generateUntil time.Time) ([]models.Event, error) {
+	var events []models.Event
+	
+	if show.Status != models.ShowStatusActive {
+		return events, nil
+	}
+	
+	// Get show occurrences using existing scheduling logic
+	occurrences := CalculateNextOccurrences(show, 1000) // Large number to cover 3 months
+	
+	now := time.Now()
+	for _, occurrence := range occurrences {
+		if occurrence.After(generateUntil) {
+			break // Stop after generateUntil date
+		}
+		
+		if occurrence.Before(now) {
+			continue // Skip past dates
+		}
+		
+		// Calculate end time
+		endTime := occurrence.Add(time.Duration(show.LengthMinutes) * time.Minute)
+		
+		event := models.Event{
+			ShowID:        show.ID,
+			UserID:        show.UserID,
+			StartDateTime: occurrence,
+			EndDateTime:   endTime,
+			Status:        models.EventStatusScheduled,
+			IsCustomized:  false,
+			ShowVersion:   show.Version,
+			GeneratedAt:   now,
+		}
+		
+		events = append(events, event)
+	}
+	
+	return events, nil
+}
+
+// GetThreeMonthHorizon returns the date 3 full months from today
+func GetThreeMonthHorizon() time.Time {
+	now := time.Now()
+	// Get end of current month
+	endOfCurrentMonth := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location()).Add(-time.Second)
+	// Add 3 more months
+	return endOfCurrentMonth.AddDate(0, 3, 0)
+}
+
+// CalculateEventEndTime calculates the end time for an event
+func CalculateEventEndTime(event *models.Event, show *models.Show) time.Time {
+	duration := show.LengthMinutes
+	if event.LengthMinutes != nil {
+		duration = *event.LengthMinutes
+	}
+	return event.StartDateTime.Add(time.Duration(duration) * time.Minute)
+}
+
+// GetEffectiveEventData returns the effective event data combining event overrides with show defaults
+func GetEffectiveEventData(event *models.Event, show *models.Show) EventData {
+	return EventData{
+		Title:          coalesce(event.EventTitle, &show.ShowName),
+		Description:    coalesce(event.EventDescription, getShowDescription(show)),
+		YouTubeKey:     coalesce(event.YouTubeKey, &show.YouTubeKey),
+		AdditionalKey:  coalesce(event.AdditionalKey, show.AdditionalKey),
+		ZoomMeetingURL: coalesce(event.ZoomMeetingURL, show.ZoomMeetingURL),
+		ZoomMeetingID:  coalesce(event.ZoomMeetingID, show.ZoomMeetingID),
+		ZoomPasscode:   coalesce(event.ZoomPasscode, show.ZoomPasscode),
+		Duration:       coalesceInt(event.LengthMinutes, &show.LengthMinutes),
+		StartTime:      event.StartDateTime,
+		EndTime:        event.EndDateTime,
+	}
+}
+
+// EventData represents the effective data for an event
+type EventData struct {
+	Title          string
+	Description    string
+	YouTubeKey     string
+	AdditionalKey  *string
+	ZoomMeetingURL *string
+	ZoomMeetingID  *string
+	ZoomPasscode   *string
+	Duration       int
+	StartTime      time.Time
+	EndTime        time.Time
+}
+
+// Helper functions for coalescing values
+
+// coalesce returns the first non-nil string value
+func coalesce(values ...*string) string {
+	for _, v := range values {
+		if v != nil && *v != "" {
+			return *v
+		}
+	}
+	return ""
+}
+
+// coalesceInt returns the first non-nil int value
+func coalesceInt(values ...*int) int {
+	for _, v := range values {
+		if v != nil {
+			return *v
+		}
+	}
+	return 0
+}
+
+// getShowDescription extracts a description from show metadata or returns empty string
+func getShowDescription(show *models.Show) *string {
+	if show.Metadata != nil {
+		if desc, ok := show.Metadata["description"].(string); ok && desc != "" {
+			return &desc
+		}
+	}
+	return nil
+}
+
+// FilterCustomizedEvents filters events that have been customized by users
+func FilterCustomizedEvents(events []models.Event) []models.Event {
+	var customized []models.Event
+	for _, event := range events {
+		if event.IsCustomized {
+			customized = append(customized, event)
+		}
+	}
+	return customized
+}
+
+// FilterNonCustomizedEvents filters events that have not been customized by users
+func FilterNonCustomizedEvents(events []models.Event) []models.Event {
+	var nonCustomized []models.Event
+	for _, event := range events {
+		if !event.IsCustomized {
+			nonCustomized = append(nonCustomized, event)
+		}
+	}
+	return nonCustomized
+}
+
+// ValidateEventTiming validates that event timing is valid
+func ValidateEventTiming(event *models.Event, show *models.Show) error {
+	// Event must be in the future (for new events)
+	if event.StartDateTime.Before(time.Now()) && event.Status == models.EventStatusScheduled {
+		return NewValidationError("cannot schedule events in the past", map[string]interface{}{
+			"start_datetime": event.StartDateTime,
+			"current_time":   time.Now(),
+		})
+	}
+	
+	// Event must belong to user
+	if event.UserID != show.UserID {
+		return NewValidationError("event user must match show user", map[string]interface{}{
+			"event_user_id": event.UserID,
+			"show_user_id":  show.UserID,
+		})
+	}
+	
+	// Duration must be reasonable
+	duration := event.EndDateTime.Sub(event.StartDateTime)
+	if duration <= 0 || duration > 24*time.Hour {
+		return NewValidationError("event duration must be between 1 minute and 24 hours", map[string]interface{}{
+			"duration_minutes": duration.Minutes(),
+			"start_datetime":   event.StartDateTime,
+			"end_datetime":     event.EndDateTime,
+		})
+	}
+	
+	return nil
+}
