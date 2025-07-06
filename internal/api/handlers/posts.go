@@ -26,12 +26,12 @@ func NewPostHandler(db *database.PostgresDB, downloader *downloader.Downloader) 
 }
 
 // AddPost godoc
-// @Summary Add a new Telegram post for processing
-// @Description Add a new Telegram post link to download media
+// @Summary Add a new Telegram or YouTube link for processing
+// @Description Add a new Telegram post link or YouTube video URL to download media. Automatically detects the platform and processes accordingly.
 // @Tags media
 // @Accept json
 // @Produce json
-// @Param request body models.AddPostRequest true "Post link"
+// @Param request body models.AddPostRequest true "Post link (Telegram or YouTube)"
 // @Success 200 {object} models.AddPostResponse
 // @Success 202 {object} models.AddPostResponse
 // @Failure 400 {object} map[string]interface{}
@@ -65,7 +65,7 @@ func (h *PostHandler) AddPost(c *gin.Context) {
 	response := models.AddPostResponse{
 		Status:           "success",
 		Message:          "Post added for processing",
-		PostID:           post.PostID,
+		ContentID:        post.ContentID,
 		MediaCount:       post.MediaCount,
 		ProcessingStatus: post.Status,
 	}
@@ -80,7 +80,7 @@ func (h *PostHandler) AddPost(c *gin.Context) {
 
 // GetList godoc
 // @Summary Get list of processed posts
-// @Description Retrieve list of all previously processed Telegram links
+// @Description Retrieve list of all previously processed Telegram and YouTube links
 // @Tags media
 // @Accept json
 // @Produce json
@@ -122,7 +122,7 @@ func (h *PostHandler) GetList(c *gin.Context) {
 	links := make([]models.PostListItem, len(posts))
 	for i, post := range posts {
 		links[i] = models.PostListItem{
-			PostID:     post.PostID,
+			ContentID:  post.ContentID,
 			Link:       post.TelegramLink,
 			AddedAt:    post.CreatedAt,
 			MediaCount: post.MediaCount,

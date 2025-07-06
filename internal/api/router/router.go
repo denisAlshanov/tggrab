@@ -46,10 +46,12 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 		// Media endpoints
 		media := api.Group("/media")
 		{
-			media.POST("/grab", postHandler.AddPost)           // /api/v1/media/grab
-			media.GET("/list", postHandler.GetList)            // /api/v1/media/list
-			media.POST("/links", mediaHandler.GetLinkList)     // /api/v1/media/links
-			media.POST("/get", mediaHandler.GetLinkMedia)      // /api/v1/media/get
+			media.POST("/grab", postHandler.AddPost)               // /api/v1/media/grab
+			media.GET("/list", postHandler.GetList)                // /api/v1/media/list
+			media.POST("/links", mediaHandler.GetLinkList)         // /api/v1/media/links
+			media.POST("/get", mediaHandler.GetLinkMedia)          // /api/v1/media/get (download)
+			media.PUT("/get", mediaHandler.UpdateLinkMedia)        // /api/v1/media/get (update)
+			media.DELETE("/get", mediaHandler.DeleteLinkMedia)     // /api/v1/media/get (delete)
 			media.POST("/getDirect", mediaHandler.GetLinkMediaURI) // /api/v1/media/getDirect
 		}
 	}

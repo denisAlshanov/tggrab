@@ -39,7 +39,7 @@ func NewS3Storage(cfg *appconfig.S3Config) (*S3Storage, error) {
 	}
 
 	var client *s3.Client
-	
+
 	// Check if we're using LocalStack
 	if cfg.EndpointURL != "" {
 		client = s3.NewFromConfig(awsCfg, func(o *s3.Options) {

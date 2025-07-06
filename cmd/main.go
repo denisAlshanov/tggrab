@@ -36,6 +36,7 @@ import (
 	"github.com/denisAlshanov/stPlaner/internal/services/downloader"
 	"github.com/denisAlshanov/stPlaner/internal/services/storage"
 	"github.com/denisAlshanov/stPlaner/internal/services/telegram"
+	"github.com/denisAlshanov/stPlaner/internal/services/youtube"
 	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
@@ -76,12 +77,16 @@ func main() {
 		logger.Info("Successfully connected to Telegram")
 	}
 
+	// Initialize YouTube client
+	youtubeClient := youtube.NewClient()
+	logger.Info("YouTube client initialized")
+
 	// Initialize downloader service
-	downloaderService := downloader.NewDownloader(db, s3Storage, telegramClient, &cfg.Download)
+	downloaderService := downloader.NewDownloader(db, s3Storage, telegramClient, youtubeClient, &cfg.Download)
 
 	// Initialize handlers
 	postHandler := handlers.NewPostHandler(db, downloaderService)
-	mediaHandler := handlers.NewMediaHandler(db, s3Storage, telegramClient)
+	mediaHandler := handlers.NewMediaHandler(db, s3Storage, telegramClient, youtubeClient)
 	healthHandler := handlers.NewHealthHandler(db, s3Storage)
 
 	// Initialize router
