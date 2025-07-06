@@ -60,6 +60,54 @@ definitions:
       status:
         type: string
     type: object
+  models.CreateShowRequest:
+    properties:
+      additional_key:
+        type: string
+      first_event_date:
+        type: string
+      length_minutes:
+        maximum: 1440
+        minimum: 1
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      repeat_pattern:
+        $ref: '#/definitions/models.RepeatPattern'
+      scheduling_config:
+        $ref: '#/definitions/models.SchedulingConfig'
+      show_name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      start_time:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_id:
+        type: string
+      zoom_meeting_url:
+        type: string
+      zoom_passcode:
+        type: string
+    required:
+    - first_event_date
+    - length_minutes
+    - repeat_pattern
+    - show_name
+    - start_time
+    - youtube_key
+    type: object
+  models.CreateShowResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.Show'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.DeleteMediaRequest:
     properties:
       media_id:
@@ -75,6 +123,22 @@ definitions:
         type: string
       status:
         type: string
+    type: object
+  models.DeleteShowRequest:
+    properties:
+      show_id:
+        type: string
+    required:
+    - show_id
+    type: object
+  models.DeleteShowResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
     type: object
   models.GetLinkListRequest:
     properties:
@@ -108,6 +172,62 @@ definitions:
       s3_url:
         type: string
     type: object
+  models.GetShowInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.ShowInfoData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.ListShowsData:
+    properties:
+      pagination:
+        $ref: '#/definitions/models.PaginationResponse'
+      shows:
+        items:
+          $ref: '#/definitions/models.ShowListItem'
+        type: array
+    type: object
+  models.ListShowsFilters:
+    properties:
+      repeat_pattern:
+        items:
+          $ref: '#/definitions/models.RepeatPattern'
+        type: array
+      search:
+        type: string
+      status:
+        items:
+          $ref: '#/definitions/models.ShowStatus'
+        type: array
+    type: object
+  models.ListShowsRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.ListShowsFilters'
+      pagination:
+        $ref: '#/definitions/models.PaginationOptions'
+      sort:
+        $ref: '#/definitions/models.ListShowsSortOptions'
+    type: object
+  models.ListShowsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.ListShowsData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.ListShowsSortOptions:
+    properties:
+      field:
+        type: string
+      order:
+        type: string
+    type: object
   models.MediaListItem:
     properties:
       file_name:
@@ -131,6 +251,26 @@ definitions:
         items:
           $ref: '#/definitions/models.MediaListItem'
         type: array
+    type: object
+  models.PaginationOptions:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      sort:
+        type: string
+    type: object
+  models.PaginationResponse:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
     type: object
   models.PostListItem:
     properties:
@@ -170,6 +310,137 @@ definitions:
     - PostStatusProcessing
     - PostStatusCompleted
     - PostStatusFailed
+  models.RepeatPattern:
+    enum:
+    - none
+    - daily
+    - weekly
+    - biweekly
+    - monthly
+    - custom
+    type: string
+    x-enum-varnames:
+    - RepeatNone
+    - RepeatDaily
+    - RepeatWeekly
+    - RepeatBiweekly
+    - RepeatMonthly
+    - RepeatCustom
+  models.SchedulingConfig:
+    properties:
+      monthly_day:
+        description: For monthly patterns - calendar day-based
+        type: integer
+      monthly_day_fallback:
+        description: '"last_day", "skip"'
+        type: string
+      monthly_week_number:
+        description: 1, 2, 3, 4, or -1 for last
+        type: integer
+      monthly_weekday:
+        description: For monthly patterns - weekday-based
+        type: integer
+      weekdays:
+        description: For weekly and biweekly patterns
+        items:
+          type: integer
+        type: array
+    type: object
+  models.Show:
+    properties:
+      additional_key:
+        type: string
+      created_at:
+        type: string
+      first_event_date:
+        type: string
+      id:
+        type: string
+      length_minutes:
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      repeat_pattern:
+        $ref: '#/definitions/models.RepeatPattern'
+      scheduling_config:
+        $ref: '#/definitions/models.SchedulingConfig'
+      show_name:
+        type: string
+      start_time:
+        type: string
+      status:
+        $ref: '#/definitions/models.ShowStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_id:
+        type: string
+      zoom_meeting_url:
+        type: string
+      zoom_passcode:
+        type: string
+    type: object
+  models.ShowEvent:
+    properties:
+      date:
+        type: string
+      end_datetime:
+        type: string
+      start_datetime:
+        type: string
+    type: object
+  models.ShowInfoData:
+    properties:
+      show:
+        $ref: '#/definitions/models.Show'
+      upcoming_events:
+        items:
+          $ref: '#/definitions/models.ShowEvent'
+        type: array
+    type: object
+  models.ShowListItem:
+    properties:
+      first_event_date:
+        type: string
+      has_zoom_meeting:
+        type: boolean
+      id:
+        type: string
+      length_minutes:
+        type: integer
+      next_occurrence:
+        type: string
+      next_occurrences:
+        items:
+          type: string
+        type: array
+      repeat_pattern:
+        $ref: '#/definitions/models.RepeatPattern'
+      scheduling_config:
+        $ref: '#/definitions/models.SchedulingConfig'
+      show_name:
+        type: string
+      start_time:
+        type: string
+      status:
+        $ref: '#/definitions/models.ShowStatus'
+    type: object
+  models.ShowStatus:
+    enum:
+    - active
+    - paused
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - ShowStatusActive
+    - ShowStatusPaused
+    - ShowStatusCompleted
+    - ShowStatusCancelled
   models.UpdateMediaRequest:
     properties:
       file_name:
@@ -501,6 +772,150 @@ paths:
       summary: Get list of processed posts
       tags:
       - media
+  /api/v1/show/create:
+    post:
+      consumes:
+      - application/json
+      description: Create a new show with YouTube and Zoom integration for recurring
+        streams
+      parameters:
+      - description: Show details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateShowRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CreateShowResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new show
+      tags:
+      - shows
+  /api/v1/show/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a show by setting its status to cancelled
+      parameters:
+      - description: Show ID to delete
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteShowRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteShowResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a show
+      tags:
+      - shows
+  /api/v1/show/info/{show_id}:
+    get:
+      description: Get detailed information about a specific show including upcoming
+        events
+      parameters:
+      - description: Show ID
+        in: path
+        name: show_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetShowInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get show information
+      tags:
+      - shows
+  /api/v1/show/list:
+    post:
+      consumes:
+      - application/json
+      description: Get a paginated list of shows with filtering and sorting options
+      parameters:
+      - description: List options
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/models.ListShowsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListShowsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List shows
+      tags:
+      - shows
   /health:
     get:
       description: Check the health of the service and its dependencies

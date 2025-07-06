@@ -15,7 +15,7 @@ type Router struct {
 	config *config.Config
 }
 
-func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler) *Router {
+func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler) *Router {
 	// Set Gin mode
 	if cfg.Server.Host == "0.0.0.0" {
 		gin.SetMode(gin.ReleaseMode)
@@ -53,6 +53,15 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			media.PUT("/get", mediaHandler.UpdateLinkMedia)        // /api/v1/media/get (update)
 			media.DELETE("/get", mediaHandler.DeleteLinkMedia)     // /api/v1/media/get (delete)
 			media.POST("/getDirect", mediaHandler.GetLinkMediaURI) // /api/v1/media/getDirect
+		}
+
+		// Show endpoints
+		show := api.Group("/show")
+		{
+			show.POST("/create", showHandler.CreateShow)           // /api/v1/show/create
+			show.DELETE("/delete", showHandler.DeleteShow)         // /api/v1/show/delete
+			show.POST("/list", showHandler.ListShows)              // /api/v1/show/list
+			show.GET("/info/:show_id", showHandler.GetShowInfo)    // /api/v1/show/info/{show_id}
 		}
 	}
 

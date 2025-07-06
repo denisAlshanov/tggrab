@@ -134,3 +134,173 @@ type DeleteMediaResponse struct {
 	Message string `json:"message"`
 	MediaID string `json:"media_id"`
 }
+
+// Show types
+type RepeatPattern string
+
+const (
+	RepeatNone      RepeatPattern = "none"
+	RepeatDaily     RepeatPattern = "daily"
+	RepeatWeekly    RepeatPattern = "weekly"
+	RepeatBiweekly  RepeatPattern = "biweekly"
+	RepeatMonthly   RepeatPattern = "monthly"
+	RepeatCustom    RepeatPattern = "custom"
+)
+
+type ShowStatus string
+
+const (
+	ShowStatusActive    ShowStatus = "active"
+	ShowStatusPaused    ShowStatus = "paused"
+	ShowStatusCompleted ShowStatus = "completed"
+	ShowStatusCancelled ShowStatus = "cancelled"
+)
+
+// Scheduling configuration types
+type MonthlyWeekNumber int
+
+const (
+	MonthlyWeekFirst  MonthlyWeekNumber = 1
+	MonthlyWeekSecond MonthlyWeekNumber = 2
+	MonthlyWeekThird  MonthlyWeekNumber = 3
+	MonthlyWeekFourth MonthlyWeekNumber = 4
+	MonthlyWeekLast   MonthlyWeekNumber = -1
+)
+
+type MonthlyDayFallback string
+
+const (
+	MonthlyDayFallbackLastDay MonthlyDayFallback = "last_day"
+	MonthlyDayFallbackSkip    MonthlyDayFallback = "skip"
+)
+
+type SchedulingConfig struct {
+	// For weekly and biweekly patterns
+	Weekdays []int `json:"weekdays,omitempty"`
+	
+	// For monthly patterns - weekday-based
+	MonthlyWeekday    *int `json:"monthly_weekday,omitempty"`    // 0=Sunday, 1=Monday, etc.
+	MonthlyWeekNumber *int `json:"monthly_week_number,omitempty"` // 1, 2, 3, 4, or -1 for last
+	
+	// For monthly patterns - calendar day-based
+	MonthlyDay         *int    `json:"monthly_day,omitempty"`         // 1-31
+	MonthlyDayFallback *string `json:"monthly_day_fallback,omitempty"` // "last_day", "skip"
+}
+
+type Show struct {
+	ID               uuid.UUID              `json:"id" db:"id"`
+	ShowName         string                 `json:"show_name" db:"show_name"`
+	YouTubeKey       string                 `json:"youtube_key" db:"youtube_key"`
+	AdditionalKey    *string                `json:"additional_key,omitempty" db:"additional_key"`
+	ZoomMeetingURL   *string                `json:"zoom_meeting_url,omitempty" db:"zoom_meeting_url"`
+	ZoomMeetingID    *string                `json:"zoom_meeting_id,omitempty" db:"zoom_meeting_id"`
+	ZoomPasscode     *string                `json:"zoom_passcode,omitempty" db:"zoom_passcode"`
+	StartTime        time.Time              `json:"start_time" db:"start_time"`
+	LengthMinutes    int                    `json:"length_minutes" db:"length_minutes"`
+	FirstEventDate   time.Time              `json:"first_event_date" db:"first_event_date"`
+	RepeatPattern    RepeatPattern          `json:"repeat_pattern" db:"repeat_pattern"`
+	SchedulingConfig *SchedulingConfig      `json:"scheduling_config,omitempty" db:"scheduling_config"`
+	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
+	Status           ShowStatus             `json:"status" db:"status"`
+	UserID           uuid.UUID              `json:"user_id" db:"user_id"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+}
+
+// Show request/response types
+type CreateShowRequest struct {
+	ShowName         string                 `json:"show_name" binding:"required,min=1,max=255"`
+	YouTubeKey       string                 `json:"youtube_key" binding:"required"`
+	AdditionalKey    *string                `json:"additional_key,omitempty"`
+	ZoomMeetingURL   *string                `json:"zoom_meeting_url,omitempty"`
+	ZoomMeetingID    *string                `json:"zoom_meeting_id,omitempty"`
+	ZoomPasscode     *string                `json:"zoom_passcode,omitempty"`
+	StartTime        string                 `json:"start_time" binding:"required"`
+	LengthMinutes    int                    `json:"length_minutes" binding:"required,min=1,max=1440"`
+	FirstEventDate   string                 `json:"first_event_date" binding:"required"`
+	RepeatPattern    RepeatPattern          `json:"repeat_pattern" binding:"required"`
+	SchedulingConfig *SchedulingConfig      `json:"scheduling_config,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type CreateShowResponse struct {
+	Success bool   `json:"success"`
+	Data    *Show  `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type DeleteShowRequest struct {
+	ShowID string `json:"show_id" binding:"required,uuid"`
+}
+
+type DeleteShowResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type ListShowsRequest struct {
+	Filters    ListShowsFilters    `json:"filters,omitempty"`
+	Pagination PaginationOptions   `json:"pagination,omitempty"`
+	Sort       ListShowsSortOptions `json:"sort,omitempty"`
+}
+
+type ListShowsFilters struct {
+	Status        []ShowStatus    `json:"status,omitempty"`
+	RepeatPattern []RepeatPattern `json:"repeat_pattern,omitempty"`
+	Search        string          `json:"search,omitempty"`
+}
+
+type ListShowsSortOptions struct {
+	Field string `json:"field,omitempty"`
+	Order string `json:"order,omitempty"`
+}
+
+type ShowListItem struct {
+	ID               uuid.UUID         `json:"id"`
+	ShowName         string            `json:"show_name"`
+	StartTime        time.Time         `json:"start_time"`
+	LengthMinutes    int               `json:"length_minutes"`
+	FirstEventDate   time.Time         `json:"first_event_date"`
+	RepeatPattern    RepeatPattern     `json:"repeat_pattern"`
+	SchedulingConfig *SchedulingConfig `json:"scheduling_config,omitempty"`
+	Status           ShowStatus        `json:"status"`
+	HasZoomMeeting   bool              `json:"has_zoom_meeting"`
+	NextOccurrence   *time.Time        `json:"next_occurrence,omitempty"`
+	NextOccurrences  []time.Time       `json:"next_occurrences,omitempty"`
+}
+
+type ListShowsResponse struct {
+	Success    bool                  `json:"success"`
+	Data       *ListShowsData        `json:"data,omitempty"`
+	Error      string                `json:"error,omitempty"`
+}
+
+type ListShowsData struct {
+	Shows      []ShowListItem     `json:"shows"`
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+type PaginationResponse struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
+}
+
+type GetShowInfoResponse struct {
+	Success bool              `json:"success"`
+	Data    *ShowInfoData     `json:"data,omitempty"`
+	Error   string            `json:"error,omitempty"`
+}
+
+type ShowInfoData struct {
+	Show           *Show         `json:"show"`
+	UpcomingEvents []ShowEvent   `json:"upcoming_events"`
+}
+
+type ShowEvent struct {
+	Date          string    `json:"date"`
+	StartDateTime time.Time `json:"start_datetime"`
+	EndDateTime   time.Time `json:"end_datetime"`
+}

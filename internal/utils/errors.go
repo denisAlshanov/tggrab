@@ -11,11 +11,13 @@ const (
 	ErrorCodeInvalidLinkFormat ErrorCode = "INVALID_LINK_FORMAT"
 	ErrorCodePostNotFound      ErrorCode = "POST_NOT_FOUND"
 	ErrorCodeMediaNotFound     ErrorCode = "MEDIA_NOT_FOUND"
+	ErrorCodeShowNotFound      ErrorCode = "SHOW_NOT_FOUND"
 	ErrorCodeDownloadFailed    ErrorCode = "DOWNLOAD_FAILED"
 	ErrorCodeS3UploadFailed    ErrorCode = "S3_UPLOAD_FAILED"
 	ErrorCodeDatabaseError     ErrorCode = "DATABASE_ERROR"
 	ErrorCodeRateLimitExceeded ErrorCode = "RATE_LIMIT_EXCEEDED"
 	ErrorCodeUnauthorized      ErrorCode = "UNAUTHORIZED"
+	ErrorCodeForbidden         ErrorCode = "FORBIDDEN"
 	ErrorCodeInternalError     ErrorCode = "INTERNAL_ERROR"
 	ErrorCodeValidationError   ErrorCode = "VALIDATION_ERROR"
 	ErrorCodeDuplicatePost     ErrorCode = "DUPLICATE_POST"
@@ -139,5 +141,37 @@ func NewDuplicatePostError(link string) *AppError {
 		map[string]interface{}{
 			"link": link,
 		},
+	)
+}
+
+func NewAuthError(message string) *AppError {
+	return NewError(
+		ErrorCodeUnauthorized,
+		message,
+		http.StatusUnauthorized,
+	)
+}
+
+func NewForbiddenError(message string) *AppError {
+	return NewError(
+		ErrorCodeForbidden,
+		message,
+		http.StatusForbidden,
+	)
+}
+
+func NewNotFoundError(message string) *AppError {
+	return NewError(
+		ErrorCodeShowNotFound,
+		message,
+		http.StatusNotFound,
+	)
+}
+
+func NewInternalErrorWithMessage(message string) *AppError {
+	return NewError(
+		ErrorCodeInternalError,
+		message,
+		http.StatusInternalServerError,
 	)
 }

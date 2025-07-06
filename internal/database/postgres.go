@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -256,6 +257,94 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 						-- Add new foreign key constraint
 						ALTER TABLE media ADD CONSTRAINT media_content_id_fkey 
 							FOREIGN KEY (content_id) REFERENCES posts(content_id) ON DELETE CASCADE;
+					END IF;
+				END $$;
+			`,
+		},
+		{
+			Version:     5,
+			Description: "Add shows table for YouTube show planning",
+			SQL: `
+				-- Create custom types for shows
+				DO $$ BEGIN
+					CREATE TYPE repeat_pattern AS ENUM ('none', 'daily', 'weekly', 'biweekly', 'monthly', 'custom');
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				DO $$ BEGIN
+					CREATE TYPE show_status AS ENUM ('active', 'paused', 'completed', 'cancelled');
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Create shows table
+				CREATE TABLE IF NOT EXISTS shows (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					show_name VARCHAR(255) NOT NULL,
+					youtube_key VARCHAR(500) NOT NULL,
+					additional_key VARCHAR(500),
+					zoom_meeting_url VARCHAR(500),
+					zoom_meeting_id VARCHAR(100),
+					zoom_passcode VARCHAR(50),
+					start_time TIME NOT NULL,
+					length_minutes INTEGER NOT NULL CHECK (length_minutes > 0),
+					first_event_date DATE NOT NULL,
+					repeat_pattern repeat_pattern NOT NULL DEFAULT 'none',
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					status show_status DEFAULT 'active',
+					user_id UUID NOT NULL,
+					metadata JSONB,
+					
+					-- Constraints
+					CONSTRAINT valid_first_event_date CHECK (first_event_date >= CURRENT_DATE),
+					CONSTRAINT valid_length CHECK (length_minutes BETWEEN 1 AND 1440),
+					CONSTRAINT valid_zoom_url CHECK (zoom_meeting_url IS NULL OR zoom_meeting_url ~ '^https://.*\.zoom\.us/.*')
+				);
+
+				-- Create indexes
+				CREATE INDEX IF NOT EXISTS idx_shows_user_id ON shows(user_id);
+				CREATE INDEX IF NOT EXISTS idx_shows_status ON shows(status);
+				CREATE INDEX IF NOT EXISTS idx_shows_first_event_date ON shows(first_event_date);
+				CREATE INDEX IF NOT EXISTS idx_shows_show_name ON shows(LOWER(show_name));
+				CREATE INDEX IF NOT EXISTS idx_shows_zoom_meeting_id ON shows(zoom_meeting_id) WHERE zoom_meeting_id IS NOT NULL;
+
+				-- Create update trigger for shows
+				DROP TRIGGER IF EXISTS update_shows_updated_at ON shows;
+				CREATE TRIGGER update_shows_updated_at BEFORE UPDATE ON shows
+					FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+			`,
+		},
+		{
+			Version:     6,
+			Description: "Add advanced scheduling configuration for shows",
+			SQL: `
+				DO $$ 
+				BEGIN
+					-- Add scheduling_config column
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'shows' AND column_name = 'scheduling_config') THEN
+						ALTER TABLE shows ADD COLUMN scheduling_config JSONB;
+						
+						-- Create index for scheduling queries
+						CREATE INDEX idx_shows_scheduling_config ON shows USING GIN (scheduling_config);
+						
+						-- Migrate existing shows to new format
+						-- For weekly and biweekly shows, use the weekday of first_event_date
+						UPDATE shows SET scheduling_config = jsonb_build_object(
+							'weekdays', ARRAY[EXTRACT(DOW FROM first_event_date)::int]
+						) WHERE repeat_pattern IN ('weekly', 'biweekly') AND scheduling_config IS NULL;
+						
+						-- For monthly shows, use the day of month approach
+						UPDATE shows SET scheduling_config = jsonb_build_object(
+							'monthly_day', EXTRACT(DAY FROM first_event_date)::int,
+							'monthly_day_fallback', 'last_day'
+						) WHERE repeat_pattern = 'monthly' AND scheduling_config IS NULL;
+						
+						-- For daily and none patterns, no specific config needed
+						UPDATE shows SET scheduling_config = jsonb_build_object()
+						WHERE repeat_pattern IN ('daily', 'none') AND scheduling_config IS NULL;
 					END IF;
 				END $$;
 			`,
@@ -708,4 +797,257 @@ func (p *PostgresDB) Ping(ctx context.Context) error {
 func (p *PostgresDB) Close() {
 	p.pool.Close()
 	p.db.Close()
+}
+
+// Show operations
+func (p *PostgresDB) CreateShow(ctx context.Context, show *models.Show) error {
+	show.ID = uuid.New()
+	show.CreatedAt = time.Now()
+	show.UpdatedAt = time.Now()
+
+	// Convert metadata to JSON
+	metadataJSON, err := json.Marshal(show.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	// Convert scheduling config to JSON
+	var schedulingConfigJSON []byte
+	if show.SchedulingConfig != nil {
+		schedulingConfigJSON, err = json.Marshal(show.SchedulingConfig)
+		if err != nil {
+			return fmt.Errorf("failed to marshal scheduling config: %w", err)
+		}
+	}
+
+	query := `
+		INSERT INTO shows (id, show_name, youtube_key, additional_key, zoom_meeting_url, 
+			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
+			repeat_pattern, scheduling_config, created_at, updated_at, status, user_id, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		RETURNING id, created_at, updated_at`
+
+	err = p.pool.QueryRow(ctx, query,
+		show.ID, show.ShowName, show.YouTubeKey, show.AdditionalKey, show.ZoomMeetingURL,
+		show.ZoomMeetingID, show.ZoomPasscode, show.StartTime, show.LengthMinutes, show.FirstEventDate,
+		show.RepeatPattern, schedulingConfigJSON, show.CreatedAt, show.UpdatedAt, show.Status, show.UserID, metadataJSON,
+	).Scan(&show.ID, &show.CreatedAt, &show.UpdatedAt)
+
+	return err
+}
+
+func (p *PostgresDB) GetShowByID(ctx context.Context, showID uuid.UUID) (*models.Show, error) {
+	show := &models.Show{}
+	var metadataJSON []byte
+	var schedulingConfigJSON []byte
+
+	query := `
+		SELECT id, show_name, youtube_key, additional_key, zoom_meeting_url, 
+			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
+			repeat_pattern, scheduling_config, created_at, updated_at, status, user_id, metadata
+		FROM shows WHERE id = $1`
+
+	err := p.pool.QueryRow(ctx, query, showID).Scan(
+		&show.ID, &show.ShowName, &show.YouTubeKey, &show.AdditionalKey, &show.ZoomMeetingURL,
+		&show.ZoomMeetingID, &show.ZoomPasscode, &show.StartTime, &show.LengthMinutes, &show.FirstEventDate,
+		&show.RepeatPattern, &schedulingConfigJSON, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal metadata if present
+	if len(metadataJSON) > 0 {
+		if err := json.Unmarshal(metadataJSON, &show.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+	}
+
+	// Unmarshal scheduling config if present
+	if len(schedulingConfigJSON) > 0 {
+		show.SchedulingConfig = &models.SchedulingConfig{}
+		if err := json.Unmarshal(schedulingConfigJSON, show.SchedulingConfig); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal scheduling config: %w", err)
+		}
+	}
+
+	return show, nil
+}
+
+func (p *PostgresDB) DeleteShow(ctx context.Context, showID uuid.UUID) error {
+	// Soft delete by updating status
+	query := `UPDATE shows SET status = $2 WHERE id = $1`
+	
+	result, err := p.pool.Exec(ctx, query, showID, models.ShowStatusCancelled)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("no show found with ID: %s", showID)
+	}
+
+	return nil
+}
+
+func (p *PostgresDB) ListShows(ctx context.Context, userID uuid.UUID, filters models.ListShowsFilters, pagination models.PaginationOptions, sort models.ListShowsSortOptions) ([]models.Show, int, error) {
+	// Set defaults
+	if pagination.Limit <= 0 {
+		pagination.Limit = 20
+	}
+	if pagination.Page <= 0 {
+		pagination.Page = 1
+	}
+	offset := (pagination.Page - 1) * pagination.Limit
+
+	// Build where clause
+	whereConditions := []string{"user_id = $1"}
+	args := []interface{}{userID}
+	argCount := 1
+
+	// Status filter
+	if len(filters.Status) > 0 {
+		argCount++
+		statusPlaceholders := make([]string, len(filters.Status))
+		for i, status := range filters.Status {
+			argCount++
+			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, status)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("status IN (%s)", strings.Join(statusPlaceholders, ",")))
+	}
+
+	// Repeat pattern filter
+	if len(filters.RepeatPattern) > 0 {
+		repeatPlaceholders := make([]string, len(filters.RepeatPattern))
+		for i, pattern := range filters.RepeatPattern {
+			argCount++
+			repeatPlaceholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, pattern)
+		}
+		whereConditions = append(whereConditions, fmt.Sprintf("repeat_pattern IN (%s)", strings.Join(repeatPlaceholders, ",")))
+	}
+
+	// Search filter
+	if filters.Search != "" {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("LOWER(show_name) LIKE LOWER($%d)", argCount))
+		args = append(args, "%"+filters.Search+"%")
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM shows WHERE %s", whereClause)
+	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build order by clause
+	orderBy := "created_at DESC" // default
+	if sort.Field != "" {
+		allowedFields := map[string]bool{
+			"show_name":        true,
+			"first_event_date": true,
+			"created_at":       true,
+			"updated_at":       true,
+		}
+		if allowedFields[sort.Field] {
+			order := "ASC"
+			if strings.ToUpper(sort.Order) == "DESC" {
+				order = "DESC"
+			}
+			orderBy = fmt.Sprintf("%s %s", sort.Field, order)
+		}
+	}
+
+	// Get shows
+	query := fmt.Sprintf(`
+		SELECT id, show_name, youtube_key, additional_key, zoom_meeting_url, 
+			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
+			repeat_pattern, scheduling_config, created_at, updated_at, status, user_id, metadata
+		FROM shows 
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
+
+	args = append(args, pagination.Limit, offset)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var shows []models.Show
+	for rows.Next() {
+		var show models.Show
+		var metadataJSON []byte
+		var schedulingConfigJSON []byte
+
+		err := rows.Scan(
+			&show.ID, &show.ShowName, &show.YouTubeKey, &show.AdditionalKey, &show.ZoomMeetingURL,
+			&show.ZoomMeetingID, &show.ZoomPasscode, &show.StartTime, &show.LengthMinutes, &show.FirstEventDate,
+			&show.RepeatPattern, &schedulingConfigJSON, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Unmarshal metadata if present
+		if len(metadataJSON) > 0 {
+			if err := json.Unmarshal(metadataJSON, &show.Metadata); err != nil {
+				return nil, 0, fmt.Errorf("failed to unmarshal metadata: %w", err)
+			}
+		}
+
+		// Unmarshal scheduling config if present
+		if len(schedulingConfigJSON) > 0 {
+			show.SchedulingConfig = &models.SchedulingConfig{}
+			if err := json.Unmarshal(schedulingConfigJSON, show.SchedulingConfig); err != nil {
+				return nil, 0, fmt.Errorf("failed to unmarshal scheduling config: %w", err)
+			}
+		}
+
+		shows = append(shows, show)
+	}
+
+	return shows, total, nil
+}
+
+func (p *PostgresDB) UpdateShow(ctx context.Context, show *models.Show) error {
+	// Convert metadata to JSON
+	metadataJSON, err := json.Marshal(show.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	// Convert scheduling config to JSON
+	var schedulingConfigJSON []byte
+	if show.SchedulingConfig != nil {
+		schedulingConfigJSON, err = json.Marshal(show.SchedulingConfig)
+		if err != nil {
+			return fmt.Errorf("failed to marshal scheduling config: %w", err)
+		}
+	}
+
+	query := `
+		UPDATE shows SET 
+			show_name = $2, youtube_key = $3, additional_key = $4, zoom_meeting_url = $5,
+			zoom_meeting_id = $6, zoom_passcode = $7, start_time = $8, length_minutes = $9,
+			first_event_date = $10, repeat_pattern = $11, scheduling_config = $12, status = $13, metadata = $14
+		WHERE id = $1`
+
+	_, err = p.pool.Exec(ctx, query,
+		show.ID, show.ShowName, show.YouTubeKey, show.AdditionalKey, show.ZoomMeetingURL,
+		show.ZoomMeetingID, show.ZoomPasscode, show.StartTime, show.LengthMinutes,
+		show.FirstEventDate, show.RepeatPattern, schedulingConfigJSON, show.Status, metadataJSON,
+	)
+	return err
 }
