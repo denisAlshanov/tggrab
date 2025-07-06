@@ -40,6 +40,51 @@ definitions:
       status:
         type: string
     type: object
+  models.AddBlockRequest:
+    properties:
+      block_type:
+        $ref: '#/definitions/models.BlockType'
+      description:
+        type: string
+      estimated_length:
+        maximum: 480
+        minimum: 1
+        type: integer
+      event_id:
+        type: string
+      guest_ids:
+        items:
+          type: string
+        type: array
+      media:
+        items:
+          $ref: '#/definitions/models.BlockMediaInput'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      order_index:
+        type: integer
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+      topic:
+        type: string
+    required:
+    - estimated_length
+    - event_id
+    - title
+    type: object
+  models.AddBlockResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.BlockDetail'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.AddPostRequest:
     properties:
       link:
@@ -59,6 +104,263 @@ definitions:
         $ref: '#/definitions/models.PostStatus'
       status:
         type: string
+    type: object
+  models.AutocompleteData:
+    properties:
+      query:
+        type: string
+      suggestions:
+        items:
+          $ref: '#/definitions/models.GuestSuggestion'
+        type: array
+      total_matches:
+        type: integer
+    type: object
+  models.AutocompleteResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.AutocompleteData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.BlockDetail:
+    properties:
+      actual_length:
+        type: integer
+      block_type:
+        $ref: '#/definitions/models.BlockType'
+      created_at:
+        type: string
+      description:
+        type: string
+      estimated_length:
+        description: in minutes
+        type: integer
+      event_id:
+        type: string
+      guests:
+        items:
+          $ref: '#/definitions/models.BlockGuestDetail'
+        type: array
+      id:
+        type: string
+      media:
+        items:
+          $ref: '#/definitions/models.BlockMediaDetail'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      order_index:
+        type: integer
+      status:
+        $ref: '#/definitions/models.BlockStatus'
+      title:
+        type: string
+      topic:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.BlockGuestDetail:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      primary_contact:
+        $ref: '#/definitions/models.GuestContact'
+      role:
+        type: string
+      short_name:
+        type: string
+      surname:
+        type: string
+    type: object
+  models.BlockInfoData:
+    properties:
+      block:
+        $ref: '#/definitions/models.BlockDetail'
+      event_info:
+        $ref: '#/definitions/models.EventSummary'
+    type: object
+  models.BlockMediaDetail:
+    properties:
+      description:
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      media_id:
+        type: string
+      media_type:
+        type: string
+      order_index:
+        type: integer
+      s3_url:
+        type: string
+      title:
+        type: string
+    type: object
+  models.BlockMediaInput:
+    properties:
+      description:
+        type: string
+      media_id:
+        type: string
+      media_type:
+        type: string
+      order_index:
+        type: integer
+      title:
+        type: string
+    required:
+    - media_id
+    - media_type
+    type: object
+  models.BlockOrder:
+    properties:
+      block_id:
+        type: string
+      order_index:
+        minimum: 0
+        type: integer
+    required:
+    - block_id
+    - order_index
+    type: object
+  models.BlockOrderSummary:
+    properties:
+      block_id:
+        type: string
+      order_index:
+        type: integer
+      title:
+        type: string
+    type: object
+  models.BlockStatus:
+    enum:
+    - planned
+    - ready
+    - in_progress
+    - completed
+    - skipped
+    type: string
+    x-enum-varnames:
+    - BlockStatusPlanned
+    - BlockStatusReady
+    - BlockStatusInProgress
+    - BlockStatusCompleted
+    - BlockStatusSkipped
+  models.BlockSummary:
+    properties:
+      actual_length:
+        type: integer
+      block_type:
+        $ref: '#/definitions/models.BlockType'
+      estimated_length:
+        type: integer
+      guest_count:
+        type: integer
+      id:
+        type: string
+      media_count:
+        type: integer
+      order_index:
+        type: integer
+      status:
+        $ref: '#/definitions/models.BlockStatus'
+      title:
+        type: string
+      topic:
+        type: string
+    type: object
+  models.BlockType:
+    enum:
+    - intro
+    - main
+    - interview
+    - qa
+    - break
+    - outro
+    - custom
+    type: string
+    x-enum-varnames:
+    - BlockTypeIntro
+    - BlockTypeMain
+    - BlockTypeInterview
+    - BlockTypeQA
+    - BlockTypeBreak
+    - BlockTypeOutro
+    - BlockTypeCustom
+  models.ContactType:
+    enum:
+    - email
+    - phone
+    - telegram
+    - discord
+    - twitter
+    - linkedin
+    - instagram
+    - website
+    - other
+    type: string
+    x-enum-varnames:
+    - ContactTypeEmail
+    - ContactTypePhone
+    - ContactTypeTelegram
+    - ContactTypeDiscord
+    - ContactTypeTwitter
+    - ContactTypeLinkedIn
+    - ContactTypeInstagram
+    - ContactTypeWebsite
+    - ContactTypeOther
+  models.CreateGuestRequest:
+    properties:
+      avatar:
+        type: string
+      contacts:
+        items:
+          $ref: '#/definitions/models.GuestContact'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      notes:
+        type: string
+      short_name:
+        type: string
+      surname:
+        maxLength: 255
+        minLength: 1
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    - surname
+    type: object
+  models.CreateGuestResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.Guest'
+      error:
+        type: string
+      success:
+        type: boolean
     type: object
   models.CreateShowRequest:
     properties:
@@ -108,6 +410,80 @@ definitions:
       success:
         type: boolean
     type: object
+  models.DateRange:
+    properties:
+      end:
+        type: string
+      start:
+        type: string
+    type: object
+  models.DeleteBlockData:
+    properties:
+      block_id:
+        type: string
+      deleted_at:
+        type: string
+      remaining_blocks_reordered:
+        type: boolean
+    type: object
+  models.DeleteBlockRequest:
+    properties:
+      block_id:
+        type: string
+      reorder_remaining:
+        type: boolean
+    required:
+    - block_id
+    type: object
+  models.DeleteBlockResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.DeleteBlockData'
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.DeleteEventRequest:
+    properties:
+      cancellation_reason:
+        type: string
+      event_id:
+        type: string
+    required:
+    - event_id
+    type: object
+  models.DeleteEventResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.EventDeleteData'
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.DeleteGuestRequest:
+    properties:
+      guest_id:
+        type: string
+    required:
+    - guest_id
+    type: object
+  models.DeleteGuestResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.GuestDeleteData'
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.DeleteMediaRequest:
     properties:
       media_id:
@@ -136,6 +512,222 @@ definitions:
       error:
         type: string
       message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.Event:
+    properties:
+      additional_key:
+        type: string
+      created_at:
+        description: Audit fields
+        type: string
+      custom_fields:
+        additionalProperties: true
+        type: object
+      end_datetime:
+        type: string
+      event_description:
+        type: string
+      event_title:
+        description: Event details (can override show defaults)
+        type: string
+      generated_at:
+        description: Generation tracking
+        type: string
+      id:
+        type: string
+      is_customized:
+        type: boolean
+      last_synced_at:
+        type: string
+      length_minutes:
+        type: integer
+      show_id:
+        type: string
+      show_version:
+        type: integer
+      start_datetime:
+        description: Timing (can override show defaults)
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/models.EventStatus'
+        description: Event metadata
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_id:
+        type: string
+      zoom_meeting_url:
+        type: string
+      zoom_passcode:
+        type: string
+    type: object
+  models.EventBlocksData:
+    properties:
+      blocks:
+        items:
+          $ref: '#/definitions/models.BlockSummary'
+        type: array
+      event_id:
+        type: string
+      total_actual_time:
+        type: integer
+      total_blocks:
+        type: integer
+      total_estimated_time:
+        type: integer
+    type: object
+  models.EventBlocksResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.EventBlocksData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.EventDeleteData:
+    properties:
+      cancelled_at:
+        type: string
+      event_id:
+        type: string
+      status:
+        $ref: '#/definitions/models.EventStatus'
+    type: object
+  models.EventFilters:
+    properties:
+      date_range:
+        $ref: '#/definitions/models.DateRange'
+      is_customized:
+        type: boolean
+      show_ids:
+        items:
+          type: string
+        type: array
+      status:
+        items:
+          $ref: '#/definitions/models.EventStatus'
+        type: array
+    type: object
+  models.EventInfoData:
+    properties:
+      event:
+        $ref: '#/definitions/models.Event'
+      show_details:
+        $ref: '#/definitions/models.ShowSummary'
+    type: object
+  models.EventListData:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/models.EventListItem'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.PaginationResponse'
+    type: object
+  models.EventListItem:
+    properties:
+      end_datetime:
+        type: string
+      event_title:
+        type: string
+      has_zoom_meeting:
+        type: boolean
+      id:
+        type: string
+      is_customized:
+        type: boolean
+      show_id:
+        type: string
+      show_name:
+        type: string
+      start_datetime:
+        type: string
+      status:
+        $ref: '#/definitions/models.EventStatus'
+    type: object
+  models.EventListRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.EventFilters'
+      pagination:
+        $ref: '#/definitions/models.PaginationOptions'
+      sort:
+        $ref: '#/definitions/models.EventSortOptions'
+    type: object
+  models.EventListResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.EventListData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.EventSortOptions:
+    properties:
+      field:
+        type: string
+      order:
+        type: string
+    type: object
+  models.EventStatus:
+    enum:
+    - scheduled
+    - live
+    - completed
+    - cancelled
+    - postponed
+    type: string
+    x-enum-varnames:
+    - EventStatusScheduled
+    - EventStatusLive
+    - EventStatusCompleted
+    - EventStatusCancelled
+    - EventStatusPostponed
+  models.EventSummary:
+    properties:
+      id:
+        type: string
+      show_name:
+        type: string
+      start_datetime:
+        type: string
+      total_blocks:
+        type: integer
+      total_estimated_time:
+        type: integer
+    type: object
+  models.GetBlockInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.BlockInfoData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.GetEventInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.EventInfoData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.GetGuestInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.GuestInfoData'
+      error:
         type: string
       success:
         type: boolean
@@ -176,6 +768,169 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/models.ShowInfoData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.Guest:
+    properties:
+      avatar:
+        type: string
+      contacts:
+        items:
+          $ref: '#/definitions/models.GuestContact'
+        type: array
+      created_at:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      notes:
+        type: string
+      short_name:
+        type: string
+      surname:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.GuestContact:
+    properties:
+      is_primary:
+        type: boolean
+      label:
+        type: string
+      type:
+        $ref: '#/definitions/models.ContactType'
+      value:
+        type: string
+    type: object
+  models.GuestDeleteData:
+    properties:
+      deleted_at:
+        type: string
+      guest_id:
+        type: string
+    type: object
+  models.GuestFilters:
+    properties:
+      created_date_range:
+        $ref: '#/definitions/models.DateRange'
+      has_contact_type:
+        items:
+          $ref: '#/definitions/models.ContactType'
+        type: array
+      search:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  models.GuestInfoData:
+    properties:
+      guest:
+        $ref: '#/definitions/models.Guest'
+      stats:
+        $ref: '#/definitions/models.GuestStats'
+    type: object
+  models.GuestListItem:
+    properties:
+      avatar:
+        type: string
+      contact_count:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes_preview:
+        type: string
+      primary_email:
+        type: string
+      short_name:
+        type: string
+      surname:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  models.GuestSortOptions:
+    properties:
+      field:
+        type: string
+      order:
+        type: string
+    type: object
+  models.GuestStats:
+    properties:
+      last_appearance:
+        type: string
+      total_shows:
+        type: integer
+      upcoming_shows:
+        type: integer
+    type: object
+  models.GuestSuggestion:
+    properties:
+      avatar:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: string
+      match_score:
+        type: number
+      name:
+        type: string
+      primary_contact:
+        $ref: '#/definitions/models.GuestContact'
+      short_name:
+        type: string
+      surname:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  models.ListGuestsData:
+    properties:
+      guests:
+        items:
+          $ref: '#/definitions/models.GuestListItem'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.PaginationResponse'
+    type: object
+  models.ListGuestsRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.GuestFilters'
+      pagination:
+        $ref: '#/definitions/models.PaginationOptions'
+      sort:
+        $ref: '#/definitions/models.GuestSortOptions'
+    type: object
+  models.ListGuestsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.ListGuestsData'
       error:
         type: string
       success:
@@ -252,6 +1007,93 @@ definitions:
           $ref: '#/definitions/models.MediaListItem'
         type: array
     type: object
+  models.MonthDay:
+    properties:
+      date:
+        type: string
+      day_number:
+        type: integer
+      events:
+        items:
+          $ref: '#/definitions/models.MonthDayEvent'
+        type: array
+      events_count:
+        type: integer
+      is_current_month:
+        type: boolean
+    type: object
+  models.MonthDayEvent:
+    properties:
+      duration_minutes:
+        type: integer
+      id:
+        type: string
+      is_customized:
+        type: boolean
+      show_name:
+        type: string
+      start_time:
+        type: string
+      status:
+        $ref: '#/definitions/models.EventStatus'
+    type: object
+  models.MonthListData:
+    properties:
+      events_by_status:
+        additionalProperties:
+          type: integer
+        type: object
+      month:
+        type: integer
+      month_name:
+        type: string
+      timezone:
+        type: string
+      total_events:
+        type: integer
+      weeks:
+        items:
+          $ref: '#/definitions/models.MonthWeek'
+        type: array
+      year:
+        type: integer
+    type: object
+  models.MonthListRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.EventFilters'
+      month:
+        maximum: 12
+        minimum: 1
+        type: integer
+      timezone:
+        type: string
+      year:
+        maximum: 2030
+        minimum: 2020
+        type: integer
+    required:
+    - month
+    - year
+    type: object
+  models.MonthListResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.MonthListData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.MonthWeek:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/models.MonthDay'
+        type: array
+      week_number:
+        type: integer
+    type: object
   models.PaginationOptions:
     properties:
       limit:
@@ -310,6 +1152,39 @@ definitions:
     - PostStatusProcessing
     - PostStatusCompleted
     - PostStatusFailed
+  models.ReorderBlocksData:
+    properties:
+      blocks:
+        items:
+          $ref: '#/definitions/models.BlockOrderSummary'
+        type: array
+      event_id:
+        type: string
+      total_estimated_time:
+        type: integer
+    type: object
+  models.ReorderBlocksRequest:
+    properties:
+      block_orders:
+        items:
+          $ref: '#/definitions/models.BlockOrder'
+        minItems: 1
+        type: array
+      event_id:
+        type: string
+    required:
+    - block_orders
+    - event_id
+    type: object
+  models.ReorderBlocksResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.ReorderBlocksData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.RepeatPattern:
     enum:
     - none
@@ -375,6 +1250,8 @@ definitions:
         type: string
       user_id:
         type: string
+      version:
+        type: integer
       youtube_key:
         type: string
       zoom_meeting_id:
@@ -441,6 +1318,132 @@ definitions:
     - ShowStatusPaused
     - ShowStatusCompleted
     - ShowStatusCancelled
+  models.ShowSummary:
+    properties:
+      id:
+        type: string
+      repeat_pattern:
+        $ref: '#/definitions/models.RepeatPattern'
+      show_name:
+        type: string
+      status:
+        $ref: '#/definitions/models.ShowStatus'
+    type: object
+  models.UpdateBlockRequest:
+    properties:
+      actual_length:
+        type: integer
+      block_id:
+        type: string
+      block_type:
+        $ref: '#/definitions/models.BlockType'
+      description:
+        type: string
+      estimated_length:
+        type: integer
+      guest_ids:
+        items:
+          type: string
+        type: array
+      media:
+        items:
+          $ref: '#/definitions/models.BlockMediaInput'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      status:
+        $ref: '#/definitions/models.BlockStatus'
+      title:
+        type: string
+      topic:
+        type: string
+    required:
+    - block_id
+    type: object
+  models.UpdateBlockResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.BlockDetail'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.UpdateEventRequest:
+    properties:
+      additional_key:
+        type: string
+      custom_fields:
+        additionalProperties: true
+        type: object
+      event_description:
+        type: string
+      event_id:
+        type: string
+      event_title:
+        type: string
+      length_minutes:
+        type: integer
+      start_datetime:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_id:
+        type: string
+      zoom_meeting_url:
+        type: string
+      zoom_passcode:
+        type: string
+    required:
+    - event_id
+    type: object
+  models.UpdateEventResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.Event'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.UpdateGuestRequest:
+    properties:
+      avatar:
+        type: string
+      contacts:
+        items:
+          $ref: '#/definitions/models.GuestContact'
+        type: array
+      guest_id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      notes:
+        type: string
+      short_name:
+        type: string
+      surname:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    required:
+    - guest_id
+    type: object
+  models.UpdateGuestResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.Guest'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.UpdateMediaRequest:
     properties:
       file_name:
@@ -464,6 +1467,69 @@ definitions:
       status:
         type: string
     type: object
+  models.WeekDay:
+    properties:
+      date:
+        type: string
+      day_name:
+        type: string
+      events:
+        items:
+          $ref: '#/definitions/models.WeekDayEvent'
+        type: array
+    type: object
+  models.WeekDayEvent:
+    properties:
+      end_time:
+        type: string
+      event_title:
+        type: string
+      id:
+        type: string
+      is_customized:
+        type: boolean
+      show_name:
+        type: string
+      start_time:
+        type: string
+      status:
+        $ref: '#/definitions/models.EventStatus'
+    type: object
+  models.WeekListData:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/models.WeekDay'
+        type: array
+      timezone:
+        type: string
+      total_events:
+        type: integer
+      week_end:
+        type: string
+      week_start:
+        type: string
+    type: object
+  models.WeekListRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.EventFilters'
+      timezone:
+        type: string
+      week_start:
+        type: string
+    required:
+    - week_start
+    type: object
+  models.WeekListResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.WeekListData'
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -479,6 +1545,670 @@ info:
   title: St. Planer - YouTube Stream Planner API
   version: "1.0"
 paths:
+  /api/v1/block/add:
+    post:
+      consumes:
+      - application/json
+      description: Create a new block with guests and media attachments
+      parameters:
+      - description: Block creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AddBlockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AddBlockResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Add new block to event
+      tags:
+      - blocks
+  /api/v1/block/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a block and optionally reorder remaining blocks
+      parameters:
+      - description: Block deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteBlockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteBlockResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete block from event
+      tags:
+      - blocks
+  /api/v1/block/info/{block_id}:
+    get:
+      description: Get detailed information about a specific block including guests
+        and media
+      parameters:
+      - description: Block ID
+        in: path
+        name: block_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetBlockInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get block details
+      tags:
+      - blocks
+  /api/v1/block/reorder:
+    put:
+      consumes:
+      - application/json
+      description: Change the order of blocks within a specific event
+      parameters:
+      - description: Block reordering data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ReorderBlocksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ReorderBlocksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Reorder blocks within an event
+      tags:
+      - blocks
+  /api/v1/block/update:
+    put:
+      consumes:
+      - application/json
+      description: Update existing block with new information
+      parameters:
+      - description: Block update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateBlockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateBlockResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update block information
+      tags:
+      - blocks
+  /api/v1/event/{event_id}/blocks:
+    get:
+      description: Get ordered list of blocks for a specific event
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.EventBlocksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List all blocks for an event
+      tags:
+      - blocks
+  /api/v1/event/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Cancel a specific event while preserving show template
+      parameters:
+      - description: Event deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Cancel/delete event
+      tags:
+      - events
+  /api/v1/event/info/{event_id}:
+    get:
+      description: Get detailed information about a specific event including show
+        details
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetEventInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get event details
+      tags:
+      - events
+  /api/v1/event/list:
+    post:
+      consumes:
+      - application/json
+      description: Get paginated list of events with filtering and sorting options
+      parameters:
+      - description: Event list filters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.EventListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.EventListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List events with filtering
+      tags:
+      - events
+  /api/v1/event/monthList:
+    post:
+      consumes:
+      - application/json
+      description: Get events organized by weeks and days for a specific month
+      parameters:
+      - description: Month view request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.MonthListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.MonthListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get month view of events
+      tags:
+      - events
+  /api/v1/event/update:
+    put:
+      consumes:
+      - application/json
+      description: Update specific event with custom fields while preserving show
+        inheritance
+      parameters:
+      - description: Event update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update event details
+      tags:
+      - events
+  /api/v1/event/weekList:
+    post:
+      consumes:
+      - application/json
+      description: Get events organized by days for a specific week
+      parameters:
+      - description: Week view request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.WeekListRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.WeekListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get week view of events
+      tags:
+      - events
+  /api/v1/guest/autocomplete:
+    get:
+      description: Get guest suggestions for autocomplete functionality
+      parameters:
+      - description: Search query (minimum 2 characters)
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: 'Maximum results (default: 10, max: 50)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AutocompleteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Guest autocomplete search
+      tags:
+      - guests
+  /api/v1/guest/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a guest from the system
+      parameters:
+      - description: Guest deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteGuestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteGuestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete guest
+      tags:
+      - guests
+  /api/v1/guest/info/{guest_id}:
+    get:
+      description: Get detailed information about a specific guest
+      parameters:
+      - description: Guest ID
+        in: path
+        name: guest_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetGuestInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get guest details
+      tags:
+      - guests
+  /api/v1/guest/list:
+    post:
+      consumes:
+      - application/json
+      description: Get paginated list of guests with filtering and sorting options
+      parameters:
+      - description: Guest list filters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ListGuestsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListGuestsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List guests with filtering
+      tags:
+      - guests
+  /api/v1/guest/new:
+    post:
+      consumes:
+      - application/json
+      description: Create a new guest with contact information and notes
+      parameters:
+      - description: Guest creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateGuestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CreateGuestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create new guest
+      tags:
+      - guests
+  /api/v1/guest/update:
+    put:
+      consumes:
+      - application/json
+      description: Update existing guest with new information
+      parameters:
+      - description: Guest update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateGuestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateGuestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update guest information
+      tags:
+      - guests
   /api/v1/media/get:
     delete:
       consumes:

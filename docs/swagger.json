@@ -18,6 +18,1025 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/api/v1/block/add": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new block with guests and media attachments",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "Add new block to event",
+                "parameters": [
+                    {
+                        "description": "Block creation data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AddBlockRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AddBlockResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/block/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove a block and optionally reorder remaining blocks",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "Delete block from event",
+                "parameters": [
+                    {
+                        "description": "Block deletion data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteBlockRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteBlockResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/block/info/{block_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get detailed information about a specific block including guests and media",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "Get block details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Block ID",
+                        "name": "block_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.GetBlockInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/block/reorder": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Change the order of blocks within a specific event",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "Reorder blocks within an event",
+                "parameters": [
+                    {
+                        "description": "Block reordering data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ReorderBlocksRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ReorderBlocksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/block/update": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update existing block with new information",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "Update block information",
+                "parameters": [
+                    {
+                        "description": "Block update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateBlockRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateBlockResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cancel a specific event while preserving show template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Cancel/delete event",
+                "parameters": [
+                    {
+                        "description": "Event deletion data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteEventRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/info/{event_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get detailed information about a specific event including show details",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get event details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.GetEventInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/list": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get paginated list of events with filtering and sorting options",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "List events with filtering",
+                "parameters": [
+                    {
+                        "description": "Event list filters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.EventListRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.EventListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/monthList": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get events organized by weeks and days for a specific month",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get month view of events",
+                "parameters": [
+                    {
+                        "description": "Month view request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.MonthListRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.MonthListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/update": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update specific event with custom fields while preserving show inheritance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Update event details",
+                "parameters": [
+                    {
+                        "description": "Event update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateEventRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/weekList": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get events organized by days for a specific week",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get week view of events",
+                "parameters": [
+                    {
+                        "description": "Week view request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.WeekListRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.WeekListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/event/{event_id}/blocks": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get ordered list of blocks for a specific event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "blocks"
+                ],
+                "summary": "List all blocks for an event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.EventBlocksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/guest/autocomplete": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get guest suggestions for autocomplete functionality",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guests"
+                ],
+                "summary": "Guest autocomplete search",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query (minimum 2 characters)",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum results (default: 10, max: 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AutocompleteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/guest/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete a guest from the system",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guests"
+                ],
+                "summary": "Delete guest",
+                "parameters": [
+                    {
+                        "description": "Guest deletion data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteGuestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteGuestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/guest/info/{guest_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get detailed information about a specific guest",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guests"
+                ],
+                "summary": "Get guest details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Guest ID",
+                        "name": "guest_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.GetGuestInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/guest/list": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get paginated list of guests with filtering and sorting options",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guests"
+                ],
+                "summary": "List guests with filtering",
+                "parameters": [
+                    {
+                        "description": "Guest list filters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ListGuestsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ListGuestsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/guest/new": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new guest with contact information and notes",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guests"
+                ],
+                "summary": "Create new guest",
+                "parameters": [
+                    {
+                        "description": "Guest creation data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateGuestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateGuestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/guest/update": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update existing guest with new information",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "guests"
+                ],
+                "summary": "Update guest information",
+                "parameters": [
+                    {
+                        "description": "Guest update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateGuestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateGuestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/media/get": {
             "put": {
                 "security": [
@@ -819,6 +1838,71 @@
                 }
             }
         },
+        "models.AddBlockRequest": {
+            "type": "object",
+            "required": [
+                "estimated_length",
+                "event_id",
+                "title"
+            ],
+            "properties": {
+                "block_type": {
+                    "$ref": "#/definitions/models.BlockType"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "estimated_length": {
+                    "type": "integer",
+                    "maximum": 480,
+                    "minimum": 1
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "guest_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "media": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockMediaInput"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "topic": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.AddBlockResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.BlockDetail"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.AddPostRequest": {
             "type": "object",
             "required": [
@@ -847,6 +1931,374 @@
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "models.AutocompleteData": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                },
+                "suggestions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GuestSuggestion"
+                    }
+                },
+                "total_matches": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.AutocompleteResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.AutocompleteData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.BlockDetail": {
+            "type": "object",
+            "properties": {
+                "actual_length": {
+                    "type": "integer"
+                },
+                "block_type": {
+                    "$ref": "#/definitions/models.BlockType"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "estimated_length": {
+                    "description": "in minutes",
+                    "type": "integer"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "guests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockGuestDetail"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "media": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockMediaDetail"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.BlockStatus"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlockGuestDetail": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "primary_contact": {
+                    "$ref": "#/definitions/models.GuestContact"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlockInfoData": {
+            "type": "object",
+            "properties": {
+                "block": {
+                    "$ref": "#/definitions/models.BlockDetail"
+                },
+                "event_info": {
+                    "$ref": "#/definitions/models.EventSummary"
+                }
+            }
+        },
+        "models.BlockMediaDetail": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "media_type": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "s3_url": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlockMediaInput": {
+            "type": "object",
+            "required": [
+                "media_id",
+                "media_type"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "media_id": {
+                    "type": "string"
+                },
+                "media_type": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlockOrder": {
+            "type": "object",
+            "required": [
+                "block_id",
+                "order_index"
+            ],
+            "properties": {
+                "block_id": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "models.BlockOrderSummary": {
+            "type": "object",
+            "properties": {
+                "block_id": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlockStatus": {
+            "type": "string",
+            "enum": [
+                "planned",
+                "ready",
+                "in_progress",
+                "completed",
+                "skipped"
+            ],
+            "x-enum-varnames": [
+                "BlockStatusPlanned",
+                "BlockStatusReady",
+                "BlockStatusInProgress",
+                "BlockStatusCompleted",
+                "BlockStatusSkipped"
+            ]
+        },
+        "models.BlockSummary": {
+            "type": "object",
+            "properties": {
+                "actual_length": {
+                    "type": "integer"
+                },
+                "block_type": {
+                    "$ref": "#/definitions/models.BlockType"
+                },
+                "estimated_length": {
+                    "type": "integer"
+                },
+                "guest_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "media_count": {
+                    "type": "integer"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.BlockStatus"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlockType": {
+            "type": "string",
+            "enum": [
+                "intro",
+                "main",
+                "interview",
+                "qa",
+                "break",
+                "outro",
+                "custom"
+            ],
+            "x-enum-varnames": [
+                "BlockTypeIntro",
+                "BlockTypeMain",
+                "BlockTypeInterview",
+                "BlockTypeQA",
+                "BlockTypeBreak",
+                "BlockTypeOutro",
+                "BlockTypeCustom"
+            ]
+        },
+        "models.ContactType": {
+            "type": "string",
+            "enum": [
+                "email",
+                "phone",
+                "telegram",
+                "discord",
+                "twitter",
+                "linkedin",
+                "instagram",
+                "website",
+                "other"
+            ],
+            "x-enum-varnames": [
+                "ContactTypeEmail",
+                "ContactTypePhone",
+                "ContactTypeTelegram",
+                "ContactTypeDiscord",
+                "ContactTypeTwitter",
+                "ContactTypeLinkedIn",
+                "ContactTypeInstagram",
+                "ContactTypeWebsite",
+                "ContactTypeOther"
+            ]
+        },
+        "models.CreateGuestRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "surname"
+            ],
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "contacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GuestContact"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.CreateGuestResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.Guest"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
@@ -918,6 +2370,121 @@
                 }
             }
         },
+        "models.DateRange": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeleteBlockData": {
+            "type": "object",
+            "properties": {
+                "block_id": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "remaining_blocks_reordered": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.DeleteBlockRequest": {
+            "type": "object",
+            "required": [
+                "block_id"
+            ],
+            "properties": {
+                "block_id": {
+                    "type": "string"
+                },
+                "reorder_remaining": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.DeleteBlockResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.DeleteBlockData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.DeleteEventRequest": {
+            "type": "object",
+            "required": [
+                "event_id"
+            ],
+            "properties": {
+                "cancellation_reason": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeleteEventResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.EventDeleteData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.DeleteGuestRequest": {
+            "type": "object",
+            "required": [
+                "guest_id"
+            ],
+            "properties": {
+                "guest_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeleteGuestResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.GuestDeleteData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.DeleteMediaRequest": {
             "type": "object",
             "required": [
@@ -961,6 +2528,333 @@
                     "type": "string"
                 },
                 "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.Event": {
+            "type": "object",
+            "properties": {
+                "additional_key": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "Audit fields",
+                    "type": "string"
+                },
+                "custom_fields": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "end_datetime": {
+                    "type": "string"
+                },
+                "event_description": {
+                    "type": "string"
+                },
+                "event_title": {
+                    "description": "Event details (can override show defaults)",
+                    "type": "string"
+                },
+                "generated_at": {
+                    "description": "Generation tracking",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_customized": {
+                    "type": "boolean"
+                },
+                "last_synced_at": {
+                    "type": "string"
+                },
+                "length_minutes": {
+                    "type": "integer"
+                },
+                "show_id": {
+                    "type": "string"
+                },
+                "show_version": {
+                    "type": "integer"
+                },
+                "start_datetime": {
+                    "description": "Timing (can override show defaults)",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Event metadata",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.EventStatus"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "youtube_key": {
+                    "type": "string"
+                },
+                "zoom_meeting_id": {
+                    "type": "string"
+                },
+                "zoom_meeting_url": {
+                    "type": "string"
+                },
+                "zoom_passcode": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventBlocksData": {
+            "type": "object",
+            "properties": {
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockSummary"
+                    }
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "total_actual_time": {
+                    "type": "integer"
+                },
+                "total_blocks": {
+                    "type": "integer"
+                },
+                "total_estimated_time": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.EventBlocksResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.EventBlocksData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.EventDeleteData": {
+            "type": "object",
+            "properties": {
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.EventStatus"
+                }
+            }
+        },
+        "models.EventFilters": {
+            "type": "object",
+            "properties": {
+                "date_range": {
+                    "$ref": "#/definitions/models.DateRange"
+                },
+                "is_customized": {
+                    "type": "boolean"
+                },
+                "show_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventStatus"
+                    }
+                }
+            }
+        },
+        "models.EventInfoData": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "$ref": "#/definitions/models.Event"
+                },
+                "show_details": {
+                    "$ref": "#/definitions/models.ShowSummary"
+                }
+            }
+        },
+        "models.EventListData": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EventListItem"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.PaginationResponse"
+                }
+            }
+        },
+        "models.EventListItem": {
+            "type": "object",
+            "properties": {
+                "end_datetime": {
+                    "type": "string"
+                },
+                "event_title": {
+                    "type": "string"
+                },
+                "has_zoom_meeting": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_customized": {
+                    "type": "boolean"
+                },
+                "show_id": {
+                    "type": "string"
+                },
+                "show_name": {
+                    "type": "string"
+                },
+                "start_datetime": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.EventStatus"
+                }
+            }
+        },
+        "models.EventListRequest": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "$ref": "#/definitions/models.EventFilters"
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.PaginationOptions"
+                },
+                "sort": {
+                    "$ref": "#/definitions/models.EventSortOptions"
+                }
+            }
+        },
+        "models.EventListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.EventListData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.EventSortOptions": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventStatus": {
+            "type": "string",
+            "enum": [
+                "scheduled",
+                "live",
+                "completed",
+                "cancelled",
+                "postponed"
+            ],
+            "x-enum-varnames": [
+                "EventStatusScheduled",
+                "EventStatusLive",
+                "EventStatusCompleted",
+                "EventStatusCancelled",
+                "EventStatusPostponed"
+            ]
+        },
+        "models.EventSummary": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "show_name": {
+                    "type": "string"
+                },
+                "start_datetime": {
+                    "type": "string"
+                },
+                "total_blocks": {
+                    "type": "integer"
+                },
+                "total_estimated_time": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.GetBlockInfoResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.BlockInfoData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.GetEventInfoResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.EventInfoData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.GetGuestInfoResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.GuestInfoData"
+                },
+                "error": {
                     "type": "string"
                 },
                 "success": {
@@ -1023,6 +2917,256 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/models.ShowInfoData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.Guest": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "contacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GuestContact"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GuestContact": {
+            "type": "object",
+            "properties": {
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/models.ContactType"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GuestDeleteData": {
+            "type": "object",
+            "properties": {
+                "deleted_at": {
+                    "type": "string"
+                },
+                "guest_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GuestFilters": {
+            "type": "object",
+            "properties": {
+                "created_date_range": {
+                    "$ref": "#/definitions/models.DateRange"
+                },
+                "has_contact_type": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ContactType"
+                    }
+                },
+                "search": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.GuestInfoData": {
+            "type": "object",
+            "properties": {
+                "guest": {
+                    "$ref": "#/definitions/models.Guest"
+                },
+                "stats": {
+                    "$ref": "#/definitions/models.GuestStats"
+                }
+            }
+        },
+        "models.GuestListItem": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "contact_count": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes_preview": {
+                    "type": "string"
+                },
+                "primary_email": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.GuestSortOptions": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GuestStats": {
+            "type": "object",
+            "properties": {
+                "last_appearance": {
+                    "type": "string"
+                },
+                "total_shows": {
+                    "type": "integer"
+                },
+                "upcoming_shows": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.GuestSuggestion": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "match_score": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "primary_contact": {
+                    "$ref": "#/definitions/models.GuestContact"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.ListGuestsData": {
+            "type": "object",
+            "properties": {
+                "guests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GuestListItem"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.PaginationResponse"
+                }
+            }
+        },
+        "models.ListGuestsRequest": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "$ref": "#/definitions/models.GuestFilters"
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.PaginationOptions"
+                },
+                "sort": {
+                    "$ref": "#/definitions/models.GuestSortOptions"
+                }
+            }
+        },
+        "models.ListGuestsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.ListGuestsData"
                 },
                 "error": {
                     "type": "string"
@@ -1142,6 +3286,137 @@
                 }
             }
         },
+        "models.MonthDay": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "day_number": {
+                    "type": "integer"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MonthDayEvent"
+                    }
+                },
+                "events_count": {
+                    "type": "integer"
+                },
+                "is_current_month": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.MonthDayEvent": {
+            "type": "object",
+            "properties": {
+                "duration_minutes": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_customized": {
+                    "type": "boolean"
+                },
+                "show_name": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.EventStatus"
+                }
+            }
+        },
+        "models.MonthListData": {
+            "type": "object",
+            "properties": {
+                "events_by_status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "month_name": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "total_events": {
+                    "type": "integer"
+                },
+                "weeks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MonthWeek"
+                    }
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.MonthListRequest": {
+            "type": "object",
+            "required": [
+                "month",
+                "year"
+            ],
+            "properties": {
+                "filters": {
+                    "$ref": "#/definitions/models.EventFilters"
+                },
+                "month": {
+                    "type": "integer",
+                    "maximum": 12,
+                    "minimum": 1
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer",
+                    "maximum": 2030,
+                    "minimum": 2020
+                }
+            }
+        },
+        "models.MonthListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.MonthListData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.MonthWeek": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MonthDay"
+                    }
+                },
+                "week_number": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.PaginationOptions": {
             "type": "object",
             "properties": {
@@ -1227,6 +3502,56 @@
                 "PostStatusCompleted",
                 "PostStatusFailed"
             ]
+        },
+        "models.ReorderBlocksData": {
+            "type": "object",
+            "properties": {
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockOrderSummary"
+                    }
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "total_estimated_time": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ReorderBlocksRequest": {
+            "type": "object",
+            "required": [
+                "block_orders",
+                "event_id"
+            ],
+            "properties": {
+                "block_orders": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/models.BlockOrder"
+                    }
+                },
+                "event_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ReorderBlocksResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.ReorderBlocksData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
         },
         "models.RepeatPattern": {
             "type": "string",
@@ -1317,6 +3642,9 @@
                 },
                 "user_id": {
                     "type": "string"
+                },
+                "version": {
+                    "type": "integer"
                 },
                 "youtube_key": {
                     "type": "string"
@@ -1416,6 +3744,197 @@
                 "ShowStatusCancelled"
             ]
         },
+        "models.ShowSummary": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "repeat_pattern": {
+                    "$ref": "#/definitions/models.RepeatPattern"
+                },
+                "show_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.ShowStatus"
+                }
+            }
+        },
+        "models.UpdateBlockRequest": {
+            "type": "object",
+            "required": [
+                "block_id"
+            ],
+            "properties": {
+                "actual_length": {
+                    "type": "integer"
+                },
+                "block_id": {
+                    "type": "string"
+                },
+                "block_type": {
+                    "$ref": "#/definitions/models.BlockType"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "estimated_length": {
+                    "type": "integer"
+                },
+                "guest_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "media": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockMediaInput"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "status": {
+                    "$ref": "#/definitions/models.BlockStatus"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateBlockResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.BlockDetail"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.UpdateEventRequest": {
+            "type": "object",
+            "required": [
+                "event_id"
+            ],
+            "properties": {
+                "additional_key": {
+                    "type": "string"
+                },
+                "custom_fields": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "event_description": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "event_title": {
+                    "type": "string"
+                },
+                "length_minutes": {
+                    "type": "integer"
+                },
+                "start_datetime": {
+                    "type": "string"
+                },
+                "youtube_key": {
+                    "type": "string"
+                },
+                "zoom_meeting_id": {
+                    "type": "string"
+                },
+                "zoom_meeting_url": {
+                    "type": "string"
+                },
+                "zoom_passcode": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateEventResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.Event"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.UpdateGuestRequest": {
+            "type": "object",
+            "required": [
+                "guest_id"
+            ],
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "contacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GuestContact"
+                    }
+                },
+                "guest_id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.UpdateGuestResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.Guest"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "models.UpdateMediaRequest": {
             "type": "object",
             "required": [
@@ -1448,6 +3967,103 @@
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "models.WeekDay": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "day_name": {
+                    "type": "string"
+                },
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WeekDayEvent"
+                    }
+                }
+            }
+        },
+        "models.WeekDayEvent": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "string"
+                },
+                "event_title": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_customized": {
+                    "type": "boolean"
+                },
+                "show_name": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.EventStatus"
+                }
+            }
+        },
+        "models.WeekListData": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WeekDay"
+                    }
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "total_events": {
+                    "type": "integer"
+                },
+                "week_end": {
+                    "type": "string"
+                },
+                "week_start": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WeekListRequest": {
+            "type": "object",
+            "required": [
+                "week_start"
+            ],
+            "properties": {
+                "filters": {
+                    "$ref": "#/definitions/models.EventFilters"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "week_start": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WeekListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.WeekListData"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         }
