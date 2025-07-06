@@ -1,0 +1,110 @@
+// Database Schema for stPlaner
+// Generated for dbdiagram.io
+// This schema represents a media downloading service for Telegram and YouTube content
+
+Project stPlaner {
+  database_type: 'PostgreSQL'
+  Note: 'Media downloading and processing service with S3 storage integration'
+}
+
+// Custom enum for post status
+Enum post_status {
+  pending
+  processing
+  completed
+  failed
+}
+
+// Main posts table storing Telegram posts or YouTube videos
+Table posts {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'Primary key using UUID']
+  content_id varchar(255) [unique, not null, note: 'Unique identifier for content']
+  telegram_link varchar(500) [unique, not null, note: 'Telegram post URL']
+  channel_name varchar(255) [not null, note: 'Channel username (e.g., @channelname)']
+  original_channel_name varchar(255) [not null, note: 'Original channel display name']
+  message_id bigint [not null, note: 'Telegram message ID']
+  created_at timestamptz [default: `CURRENT_TIMESTAMP`, note: 'Creation timestamp']
+  updated_at timestamptz [default: `CURRENT_TIMESTAMP`, note: 'Last update timestamp']
+  status post_status [default: 'pending', note: 'Processing status']
+  media_count integer [default: 0, note: 'Number of media files in post']
+  total_size bigint [default: 0, note: 'Total size of all media in bytes']
+  error_message text [null, note: 'Error details if processing failed']
+  
+  Indexes {
+    content_id [name: 'idx_posts_content_id']
+    channel_name [name: 'idx_posts_channel_name']
+    original_channel_name [name: 'idx_posts_original_channel_name']
+    created_at [type: btree, name: 'idx_posts_created_at', note: 'DESC for recent items first']
+    status [name: 'idx_posts_status']
+  }
+  
+  Note: 'Stores metadata about Telegram posts or YouTube videos to be processed'
+}
+
+// Media files associated with posts
+Table media {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'Primary key using UUID']
+  media_id varchar(255) [unique, not null, note: 'Unique media identifier']
+  content_id varchar(255) [not null, note: 'Reference to parent post']
+  telegram_file_id varchar(500) [not null, note: 'Telegram file identifier for API access']
+  file_name varchar(500) [not null, note: 'Stored file name in system']
+  original_file_name varchar(500) [not null, note: 'Original file name from source']
+  file_type varchar(100) [not null, note: 'MIME type (e.g., video/mp4, image/jpeg)']
+  file_size bigint [not null, note: 'File size in bytes']
+  s3_bucket varchar(255) [not null, note: 'AWS S3 bucket name']
+  s3_key varchar(500) [not null, note: 'S3 object key (path)']
+  file_hash varchar(255) [not null, note: 'SHA-256 hash for deduplication']
+  downloaded_at timestamptz [default: `CURRENT_TIMESTAMP`, note: 'Download completion timestamp']
+  metadata jsonb [null, note: 'Additional metadata (dimensions, duration, etc.)']
+  
+  Indexes {
+    media_id [name: 'idx_media_media_id']
+    content_id [name: 'idx_media_content_id']
+    file_hash [name: 'idx_media_file_hash']
+    telegram_file_id [name: 'idx_media_telegram_file_id']
+    original_file_name [name: 'idx_media_original_file_name']
+  }
+  
+  Note: 'Individual media files downloaded from posts'
+}
+
+// Schema migration tracking
+Table schema_migrations {
+  version integer [pk, note: 'Migration version number']
+  description varchar(255) [not null, note: 'Human-readable migration description']
+  applied_at timestamptz [default: `CURRENT_TIMESTAMP`, note: 'When migration was applied']
+  
+  Note: 'Tracks applied database migrations for version control'
+}
+
+// Define relationships
+Ref: media.content_id > posts.content_id [delete: cascade]
+
+// Additional notes
+TableGroup media_storage {
+  posts
+  media
+}
+
+Note project_notes {
+  '''
+## Database Extensions Required:
+- uuid-ossp: For UUID generation (gen_random_uuid())
+- pgcrypto: For cryptographic functions
+
+## Triggers:
+- update_posts_updated_at: Automatically updates the updated_at timestamp on posts table
+
+## Migration History:
+1. Add original_channel_name column to posts
+2. Add original_file_name column to media
+3. Rename post_id to content_id in posts table
+4. Rename post_id to content_id in media table
+
+## Key Design Decisions:
+- UUIDs for primary keys: Better for distributed systems
+- JSONB for metadata: Flexible schema for various media types
+- Content-based hashing: Enables deduplication
+- Separate media table: Supports multiple files per post
+- Status enum: Clear workflow states
+'''}
