@@ -546,3 +546,177 @@ type ShowSummary struct {
 	RepeatPattern RepeatPattern `json:"repeat_pattern"`
 	Status        ShowStatus    `json:"status"`
 }
+
+// Guest Management System Models
+
+type ContactType string
+
+const (
+	ContactTypeEmail     ContactType = "email"
+	ContactTypePhone     ContactType = "phone"
+	ContactTypeTelegram  ContactType = "telegram"
+	ContactTypeDiscord   ContactType = "discord"
+	ContactTypeTwitter   ContactType = "twitter"
+	ContactTypeLinkedIn  ContactType = "linkedin"
+	ContactTypeInstagram ContactType = "instagram"
+	ContactTypeWebsite   ContactType = "website"
+	ContactTypeOther     ContactType = "other"
+)
+
+type GuestContact struct {
+	Type      ContactType `json:"type" db:"type"`
+	Value     string      `json:"value" db:"value"`
+	Label     *string     `json:"label,omitempty" db:"label"`
+	IsPrimary bool        `json:"is_primary" db:"is_primary"`
+}
+
+type Guest struct {
+	ID        uuid.UUID              `json:"id" db:"id"`
+	UserID    uuid.UUID              `json:"user_id" db:"user_id"`
+	Name      string                 `json:"name" db:"name"`
+	Surname   string                 `json:"surname" db:"surname"`
+	ShortName *string                `json:"short_name,omitempty" db:"short_name"`
+	Contacts  []GuestContact         `json:"contacts,omitempty" db:"contacts"`
+	Notes     *string                `json:"notes,omitempty" db:"notes"`
+	Avatar    *string                `json:"avatar,omitempty" db:"avatar"`
+	Tags      []string               `json:"tags,omitempty" db:"tags"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at" db:"updated_at"`
+}
+
+// Guest API Request/Response Types
+
+type CreateGuestRequest struct {
+	Name      string                 `json:"name" binding:"required,min=1,max=255"`
+	Surname   string                 `json:"surname" binding:"required,min=1,max=255"`
+	ShortName *string                `json:"short_name,omitempty"`
+	Contacts  []GuestContact         `json:"contacts,omitempty"`
+	Notes     *string                `json:"notes,omitempty"`
+	Avatar    *string                `json:"avatar,omitempty"`
+	Tags      []string               `json:"tags,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type CreateGuestResponse struct {
+	Success bool   `json:"success"`
+	Data    *Guest `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type UpdateGuestRequest struct {
+	GuestID   string                 `json:"guest_id" binding:"required,uuid"`
+	Name      *string                `json:"name,omitempty"`
+	Surname   *string                `json:"surname,omitempty"`
+	ShortName *string                `json:"short_name,omitempty"`
+	Contacts  []GuestContact         `json:"contacts,omitempty"`
+	Notes     *string                `json:"notes,omitempty"`
+	Avatar    *string                `json:"avatar,omitempty"`
+	Tags      []string               `json:"tags,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type UpdateGuestResponse struct {
+	Success bool   `json:"success"`
+	Data    *Guest `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type DeleteGuestRequest struct {
+	GuestID string `json:"guest_id" binding:"required,uuid"`
+}
+
+type DeleteGuestResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message,omitempty"`
+	Data    *GuestDeleteData `json:"data,omitempty"`
+	Error   string           `json:"error,omitempty"`
+}
+
+type GuestDeleteData struct {
+	GuestID   string    `json:"guest_id"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
+type ListGuestsRequest struct {
+	Filters    GuestFilters      `json:"filters,omitempty"`
+	Pagination PaginationOptions `json:"pagination,omitempty"`
+	Sort       GuestSortOptions  `json:"sort,omitempty"`
+}
+
+type GuestFilters struct {
+	Search           string        `json:"search,omitempty"`
+	Tags             []string      `json:"tags,omitempty"`
+	HasContactType   []ContactType `json:"has_contact_type,omitempty"`
+	CreatedDateRange *DateRange    `json:"created_date_range,omitempty"`
+}
+
+type GuestSortOptions struct {
+	Field string `json:"field,omitempty"`
+	Order string `json:"order,omitempty"`
+}
+
+type ListGuestsResponse struct {
+	Success bool           `json:"success"`
+	Data    *ListGuestsData `json:"data,omitempty"`
+	Error   string         `json:"error,omitempty"`
+}
+
+type ListGuestsData struct {
+	Guests     []GuestListItem    `json:"guests"`
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+type GuestListItem struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Surname      string    `json:"surname"`
+	ShortName    *string   `json:"short_name,omitempty"`
+	PrimaryEmail *string   `json:"primary_email,omitempty"`
+	Avatar       *string   `json:"avatar,omitempty"`
+	Tags         []string  `json:"tags"`
+	NotesPreview *string   `json:"notes_preview,omitempty"`
+	ContactCount int       `json:"contact_count"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+type AutocompleteResponse struct {
+	Success bool              `json:"success"`
+	Data    *AutocompleteData `json:"data,omitempty"`
+	Error   string            `json:"error,omitempty"`
+}
+
+type AutocompleteData struct {
+	Suggestions  []GuestSuggestion `json:"suggestions"`
+	Query        string            `json:"query"`
+	TotalMatches int               `json:"total_matches"`
+}
+
+type GuestSuggestion struct {
+	ID             uuid.UUID     `json:"id"`
+	DisplayName    string        `json:"display_name"`
+	Name           string        `json:"name"`
+	Surname        string        `json:"surname"`
+	ShortName      *string       `json:"short_name,omitempty"`
+	Avatar         *string       `json:"avatar,omitempty"`
+	PrimaryContact *GuestContact `json:"primary_contact,omitempty"`
+	Tags           []string      `json:"tags"`
+	MatchScore     float64       `json:"match_score"`
+}
+
+type GetGuestInfoResponse struct {
+	Success bool           `json:"success"`
+	Data    *GuestInfoData `json:"data,omitempty"`
+	Error   string         `json:"error,omitempty"`
+}
+
+type GuestInfoData struct {
+	Guest *Guest      `json:"guest"`
+	Stats *GuestStats `json:"stats,omitempty"`
+}
+
+type GuestStats struct {
+	TotalShows      int        `json:"total_shows"`
+	LastAppearance  *time.Time `json:"last_appearance,omitempty"`
+	UpcomingShows   int        `json:"upcoming_shows"`
+}

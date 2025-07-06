@@ -15,7 +15,7 @@ type Router struct {
 	config *config.Config
 }
 
-func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler) *Router {
+func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler) *Router {
 	// Set Gin mode
 	if cfg.Server.Host == "0.0.0.0" {
 		gin.SetMode(gin.ReleaseMode)
@@ -62,6 +62,28 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			show.DELETE("/delete", showHandler.DeleteShow)         // /api/v1/show/delete
 			show.POST("/list", showHandler.ListShows)              // /api/v1/show/list
 			show.GET("/info/:show_id", showHandler.GetShowInfo)    // /api/v1/show/info/{show_id}
+		}
+
+		// Event endpoints
+		event := api.Group("/event")
+		{
+			event.PUT("/update", eventHandler.UpdateEvent)         // /api/v1/event/update
+			event.DELETE("/delete", eventHandler.DeleteEvent)      // /api/v1/event/delete
+			event.POST("/list", eventHandler.ListEvents)           // /api/v1/event/list
+			event.POST("/weekList", eventHandler.WeekListEvents)   // /api/v1/event/weekList
+			event.POST("/monthList", eventHandler.MonthListEvents) // /api/v1/event/monthList
+			event.GET("/info/:event_id", eventHandler.GetEventInfo) // /api/v1/event/info/{event_id}
+		}
+
+		// Guest endpoints
+		guest := api.Group("/guest")
+		{
+			guest.POST("/new", guestHandler.CreateGuest)           // /api/v1/guest/new
+			guest.PUT("/update", guestHandler.UpdateGuest)         // /api/v1/guest/update
+			guest.POST("/list", guestHandler.ListGuests)           // /api/v1/guest/list
+			guest.GET("/autocomplete", guestHandler.AutocompleteGuests) // /api/v1/guest/autocomplete
+			guest.GET("/info/:guest_id", guestHandler.GetGuestInfo) // /api/v1/guest/info/{guest_id}
+			guest.DELETE("/delete", guestHandler.DeleteGuest)      // /api/v1/guest/delete
 		}
 	}
 

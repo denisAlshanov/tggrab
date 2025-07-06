@@ -455,10 +455,10 @@ func GetEffectiveEventData(event *models.Event, show *models.Show) EventData {
 		Title:          coalesce(event.EventTitle, &show.ShowName),
 		Description:    coalesce(event.EventDescription, getShowDescription(show)),
 		YouTubeKey:     coalesce(event.YouTubeKey, &show.YouTubeKey),
-		AdditionalKey:  coalesce(event.AdditionalKey, show.AdditionalKey),
-		ZoomMeetingURL: coalesce(event.ZoomMeetingURL, show.ZoomMeetingURL),
-		ZoomMeetingID:  coalesce(event.ZoomMeetingID, show.ZoomMeetingID),
-		ZoomPasscode:   coalesce(event.ZoomPasscode, show.ZoomPasscode),
+		AdditionalKey:  coalescePtr(event.AdditionalKey, show.AdditionalKey),
+		ZoomMeetingURL: coalescePtr(event.ZoomMeetingURL, show.ZoomMeetingURL),
+		ZoomMeetingID:  coalescePtr(event.ZoomMeetingID, show.ZoomMeetingID),
+		ZoomPasscode:   coalescePtr(event.ZoomPasscode, show.ZoomPasscode),
 		Duration:       coalesceInt(event.LengthMinutes, &show.LengthMinutes),
 		StartTime:      event.StartDateTime,
 		EndTime:        event.EndDateTime,
@@ -499,6 +499,16 @@ func coalesceInt(values ...*int) int {
 		}
 	}
 	return 0
+}
+
+// coalescePtr returns the first non-nil string pointer value
+func coalescePtr(values ...*string) *string {
+	for _, v := range values {
+		if v != nil && *v != "" {
+			return v
+		}
+	}
+	return nil
 }
 
 // getShowDescription extracts a description from show metadata or returns empty string

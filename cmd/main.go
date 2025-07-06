@@ -89,9 +89,11 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler(db, s3Storage, telegramClient, youtubeClient)
 	healthHandler := handlers.NewHealthHandler(db, s3Storage)
 	showHandler := handlers.NewShowHandler(db)
+	eventHandler := handlers.NewEventHandler(db)
+	guestHandler := handlers.NewGuestHandler(db)
 
 	// Initialize router
-	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler)
+	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler)
 
 	// Start server
 	go func() {

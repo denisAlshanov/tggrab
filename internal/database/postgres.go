@@ -450,6 +450,64 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 				EXECUTE FUNCTION update_updated_at_column();
 			`,
 		},
+		{
+			Version:     8,
+			Description: "Add guests table for guest management system",
+			SQL: `
+				-- Create contact type enum
+				DO $$ BEGIN
+					CREATE TYPE contact_type AS ENUM (
+						'email', 'phone', 'telegram', 'discord', 'twitter', 
+						'linkedin', 'instagram', 'website', 'other'
+					);
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Install trigram extension for fuzzy search if not already installed
+				CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+				-- Create guests table
+				CREATE TABLE IF NOT EXISTS guests (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					user_id UUID NOT NULL,
+					name VARCHAR(255) NOT NULL,
+					surname VARCHAR(255) NOT NULL,
+					short_name VARCHAR(100),
+					contacts JSONB DEFAULT '[]'::jsonb,
+					notes TEXT,
+					avatar VARCHAR(500),
+					tags JSONB DEFAULT '[]'::jsonb,
+					metadata JSONB DEFAULT '{}'::jsonb,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					
+					-- Constraints
+					CONSTRAINT valid_name CHECK (LENGTH(TRIM(name)) > 0),
+					CONSTRAINT valid_surname CHECK (LENGTH(TRIM(surname)) > 0),
+					CONSTRAINT unique_user_guest UNIQUE(user_id, name, surname)
+				);
+
+				-- Create indexes for performance
+				CREATE INDEX IF NOT EXISTS idx_guests_user_id ON guests(user_id);
+				CREATE INDEX IF NOT EXISTS idx_guests_name ON guests(LOWER(name));
+				CREATE INDEX IF NOT EXISTS idx_guests_surname ON guests(LOWER(surname));
+				CREATE INDEX IF NOT EXISTS idx_guests_short_name ON guests(LOWER(short_name)) WHERE short_name IS NOT NULL;
+				CREATE INDEX IF NOT EXISTS idx_guests_full_name ON guests(LOWER(name || ' ' || surname));
+				CREATE INDEX IF NOT EXISTS idx_guests_contacts ON guests USING GIN (contacts);
+				CREATE INDEX IF NOT EXISTS idx_guests_tags ON guests USING GIN (tags);
+				CREATE INDEX IF NOT EXISTS idx_guests_search ON guests USING GIN (
+					(LOWER(name) || ' ' || LOWER(surname) || ' ' || COALESCE(LOWER(short_name), '')) gin_trgm_ops
+				);
+
+				-- Create update trigger for guests
+				DROP TRIGGER IF EXISTS update_guests_updated_at ON guests;
+				CREATE TRIGGER update_guests_updated_at 
+				BEFORE UPDATE ON guests
+				FOR EACH ROW 
+				EXECUTE FUNCTION update_updated_at_column();
+			`,
+		},
 	}
 
 	// Run each migration if not already applied
@@ -1727,4 +1785,365 @@ func (p *PostgresDB) GetActiveShows(ctx context.Context) ([]models.Show, error) 
 	}
 
 	return shows, nil
+}
+
+// Guest operations
+
+func (p *PostgresDB) CreateGuest(ctx context.Context, guest *models.Guest) error {
+	guest.ID = uuid.New()
+	guest.CreatedAt = time.Now()
+	guest.UpdatedAt = time.Now()
+
+	// Convert contacts, tags, and metadata to JSON
+	contactsJSON, err := json.Marshal(guest.Contacts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal contacts: %w", err)
+	}
+
+	tagsJSON, err := json.Marshal(guest.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	metadataJSON, err := json.Marshal(guest.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	query := `
+		INSERT INTO guests (id, user_id, name, surname, short_name, contacts, 
+			notes, avatar, tags, metadata, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id, created_at, updated_at`
+
+	err = p.pool.QueryRow(ctx, query,
+		guest.ID, guest.UserID, guest.Name, guest.Surname, guest.ShortName,
+		contactsJSON, guest.Notes, guest.Avatar, tagsJSON, metadataJSON,
+		guest.CreatedAt, guest.UpdatedAt,
+	).Scan(&guest.ID, &guest.CreatedAt, &guest.UpdatedAt)
+
+	return err
+}
+
+func (p *PostgresDB) GetGuestByID(ctx context.Context, guestID uuid.UUID) (*models.Guest, error) {
+	guest := &models.Guest{}
+	var contactsJSON, tagsJSON, metadataJSON []byte
+
+	query := `
+		SELECT id, user_id, name, surname, short_name, contacts, notes, avatar, 
+			tags, metadata, created_at, updated_at
+		FROM guests WHERE id = $1`
+
+	err := p.pool.QueryRow(ctx, query, guestID).Scan(
+		&guest.ID, &guest.UserID, &guest.Name, &guest.Surname, &guest.ShortName,
+		&contactsJSON, &guest.Notes, &guest.Avatar, &tagsJSON, &metadataJSON,
+		&guest.CreatedAt, &guest.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal JSON fields
+	if len(contactsJSON) > 0 {
+		if err := json.Unmarshal(contactsJSON, &guest.Contacts); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal contacts: %w", err)
+		}
+	}
+
+	if len(tagsJSON) > 0 {
+		if err := json.Unmarshal(tagsJSON, &guest.Tags); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tags: %w", err)
+		}
+	}
+
+	if len(metadataJSON) > 0 {
+		if err := json.Unmarshal(metadataJSON, &guest.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+	}
+
+	return guest, nil
+}
+
+func (p *PostgresDB) UpdateGuest(ctx context.Context, guest *models.Guest) error {
+	// Convert contacts, tags, and metadata to JSON
+	contactsJSON, err := json.Marshal(guest.Contacts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal contacts: %w", err)
+	}
+
+	tagsJSON, err := json.Marshal(guest.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags: %w", err)
+	}
+
+	metadataJSON, err := json.Marshal(guest.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	query := `
+		UPDATE guests SET 
+			name = $2, surname = $3, short_name = $4, contacts = $5,
+			notes = $6, avatar = $7, tags = $8, metadata = $9
+		WHERE id = $1`
+
+	_, err = p.pool.Exec(ctx, query,
+		guest.ID, guest.Name, guest.Surname, guest.ShortName, contactsJSON,
+		guest.Notes, guest.Avatar, tagsJSON, metadataJSON,
+	)
+	return err
+}
+
+func (p *PostgresDB) DeleteGuest(ctx context.Context, guestID uuid.UUID) error {
+	query := `DELETE FROM guests WHERE id = $1`
+	
+	result, err := p.pool.Exec(ctx, query, guestID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("no guest found with ID: %s", guestID)
+	}
+
+	return nil
+}
+
+func (p *PostgresDB) ListGuests(ctx context.Context, userID uuid.UUID, filters models.GuestFilters, pagination models.PaginationOptions, sort models.GuestSortOptions) ([]models.GuestListItem, int, error) {
+	// Set defaults
+	if pagination.Limit <= 0 {
+		pagination.Limit = 20
+	}
+	if pagination.Page <= 0 {
+		pagination.Page = 1
+	}
+	offset := (pagination.Page - 1) * pagination.Limit
+
+	// Build where clause
+	whereConditions := []string{"user_id = $1"}
+	args := []interface{}{userID}
+	argCount := 1
+
+	// Search filter
+	if filters.Search != "" {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf(`(
+			LOWER(name) LIKE LOWER($%d) OR
+			LOWER(surname) LIKE LOWER($%d) OR
+			LOWER(short_name) LIKE LOWER($%d) OR
+			LOWER(name || ' ' || surname) LIKE LOWER($%d)
+		)`, argCount, argCount, argCount, argCount))
+		searchPattern := "%" + filters.Search + "%"
+		args = append(args, searchPattern)
+	}
+
+	// Tags filter
+	if len(filters.Tags) > 0 {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("tags ?& $%d", argCount))
+		args = append(args, filters.Tags)
+	}
+
+	// Contact type filter
+	if len(filters.HasContactType) > 0 {
+		contactConditions := make([]string, len(filters.HasContactType))
+		for i, contactType := range filters.HasContactType {
+			argCount++
+			contactConditions[i] = fmt.Sprintf("contacts @> $%d", argCount)
+			args = append(args, fmt.Sprintf(`[{"type": "%s"}]`, contactType))
+		}
+		whereConditions = append(whereConditions, "("+strings.Join(contactConditions, " OR ")+")")
+	}
+
+	// Date range filter
+	if filters.CreatedDateRange != nil {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("created_at >= $%d", argCount))
+		args = append(args, filters.CreatedDateRange.Start)
+		
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("created_at <= $%d", argCount))
+		args = append(args, filters.CreatedDateRange.End)
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM guests WHERE %s", whereClause)
+	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build order by clause
+	orderBy := "name ASC, surname ASC" // default
+	if sort.Field != "" {
+		allowedFields := map[string]bool{
+			"name":       true,
+			"surname":    true,
+			"short_name": true,
+			"created_at": true,
+			"updated_at": true,
+		}
+		if allowedFields[sort.Field] {
+			order := "ASC"
+			if strings.ToUpper(sort.Order) == "DESC" {
+				order = "DESC"
+			}
+			orderBy = fmt.Sprintf("%s %s", sort.Field, order)
+		}
+	}
+
+	// Get guests with summary data
+	query := fmt.Sprintf(`
+		SELECT id, name, surname, short_name, contacts, avatar, tags, 
+			LEFT(notes, 100) as notes_preview, 
+			jsonb_array_length(COALESCE(contacts, '[]'::jsonb)) as contact_count,
+			created_at
+		FROM guests 
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
+
+	args = append(args, pagination.Limit, offset)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var guests []models.GuestListItem
+	for rows.Next() {
+		var guest models.GuestListItem
+		var contactsJSON, tagsJSON []byte
+		var notesPreview sql.NullString
+
+		err := rows.Scan(
+			&guest.ID, &guest.Name, &guest.Surname, &guest.ShortName,
+			&contactsJSON, &guest.Avatar, &tagsJSON, &notesPreview,
+			&guest.ContactCount, &guest.CreatedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Process notes preview
+		if notesPreview.Valid {
+			guest.NotesPreview = &notesPreview.String
+		}
+
+		// Unmarshal contacts to find primary email
+		var contacts []models.GuestContact
+		if len(contactsJSON) > 0 {
+			json.Unmarshal(contactsJSON, &contacts)
+			for _, contact := range contacts {
+				if contact.Type == models.ContactTypeEmail && contact.IsPrimary {
+					guest.PrimaryEmail = &contact.Value
+					break
+				}
+			}
+			// If no primary email found, use first email
+			if guest.PrimaryEmail == nil {
+				for _, contact := range contacts {
+					if contact.Type == models.ContactTypeEmail {
+						guest.PrimaryEmail = &contact.Value
+						break
+					}
+				}
+			}
+		}
+
+		// Unmarshal tags
+		if len(tagsJSON) > 0 {
+			json.Unmarshal(tagsJSON, &guest.Tags)
+		}
+
+		guests = append(guests, guest)
+	}
+
+	return guests, total, nil
+}
+
+func (p *PostgresDB) SearchGuests(ctx context.Context, userID uuid.UUID, query string, limit int) ([]models.GuestSuggestion, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	searchQuery := `
+		SELECT g.id, g.name, g.surname, g.short_name, g.avatar, g.contacts, g.tags,
+			similarity(LOWER(g.name || ' ' || g.surname || ' ' || COALESCE(g.short_name, '')), LOWER($2)) as score
+		FROM guests g
+		WHERE g.user_id = $1 
+		AND (
+			LOWER(g.name) LIKE LOWER($2 || '%') OR
+			LOWER(g.surname) LIKE LOWER($2 || '%') OR
+			LOWER(g.short_name) LIKE LOWER($2 || '%') OR
+			LOWER(g.name || ' ' || g.surname) LIKE LOWER('%' || $2 || '%')
+		)
+		ORDER BY score DESC, g.name ASC, g.surname ASC
+		LIMIT $3`
+
+	rows, err := p.pool.Query(ctx, searchQuery, userID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var suggestions []models.GuestSuggestion
+	for rows.Next() {
+		var suggestion models.GuestSuggestion
+		var contactsJSON, tagsJSON []byte
+		var score float64
+
+		err := rows.Scan(
+			&suggestion.ID, &suggestion.Name, &suggestion.Surname, &suggestion.ShortName,
+			&suggestion.Avatar, &contactsJSON, &tagsJSON, &score,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Build display name
+		displayName := suggestion.Name + " " + suggestion.Surname
+		if suggestion.ShortName != nil && *suggestion.ShortName != "" {
+			displayName += " (" + *suggestion.ShortName + ")"
+		}
+		suggestion.DisplayName = displayName
+
+		// Parse contacts and find primary
+		var contacts []models.GuestContact
+		if len(contactsJSON) > 0 {
+			json.Unmarshal(contactsJSON, &contacts)
+			for _, contact := range contacts {
+				if contact.IsPrimary {
+					suggestion.PrimaryContact = &contact
+					break
+				}
+			}
+			// If no primary contact found, use first contact
+			if suggestion.PrimaryContact == nil && len(contacts) > 0 {
+				suggestion.PrimaryContact = &contacts[0]
+			}
+		}
+
+		// Parse tags
+		if len(tagsJSON) > 0 {
+			json.Unmarshal(tagsJSON, &suggestion.Tags)
+		}
+
+		suggestion.MatchScore = score
+		suggestions = append(suggestions, suggestion)
+	}
+
+	return suggestions, nil
 }

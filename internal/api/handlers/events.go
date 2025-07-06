@@ -1,26 +1,24 @@
 package handlers
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/denisAlshanov/stPlaner/internal/database"
 	"github.com/denisAlshanov/stPlaner/internal/models"
 	"github.com/denisAlshanov/stPlaner/internal/utils"
 )
 
 // EventHandler handles event-related HTTP requests
 type EventHandler struct {
-	db Database
+	db *database.PostgresDB
 }
 
 // NewEventHandler creates a new event handler
-func NewEventHandler(db Database) *EventHandler {
+func NewEventHandler(db *database.PostgresDB) *EventHandler {
 	return &EventHandler{db: db}
 }
 
@@ -388,9 +386,9 @@ func (h *EventHandler) WeekListEvents(c *gin.Context) {
 
 	// Distribute events to days
 	for _, event := range events {
-		dayIndex := int(event.StartTime[0]) // This needs proper parsing
 		// TODO: Fix this - need to parse start time and determine day
 		// For now, we'll distribute based on event start time
+		_ = event // Suppress unused variable warning
 	}
 
 	weekEnd := weekStart.AddDate(0, 0, 6)
