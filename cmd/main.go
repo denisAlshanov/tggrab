@@ -91,9 +91,10 @@ func main() {
 	showHandler := handlers.NewShowHandler(db)
 	eventHandler := handlers.NewEventHandler(db)
 	guestHandler := handlers.NewGuestHandler(db)
+	blockHandler := handlers.NewBlockHandler(db)
 
 	// Initialize router
-	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler)
+	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler, blockHandler)
 
 	// Start server
 	go func() {

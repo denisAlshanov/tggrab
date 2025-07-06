@@ -720,3 +720,234 @@ type GuestStats struct {
 	LastAppearance  *time.Time `json:"last_appearance,omitempty"`
 	UpcomingShows   int        `json:"upcoming_shows"`
 }
+
+// Show Blocks System Models
+
+type BlockType string
+
+const (
+	BlockTypeIntro     BlockType = "intro"
+	BlockTypeMain      BlockType = "main"
+	BlockTypeInterview BlockType = "interview"
+	BlockTypeQA        BlockType = "qa"
+	BlockTypeBreak     BlockType = "break"
+	BlockTypeOutro     BlockType = "outro"
+	BlockTypeCustom    BlockType = "custom"
+)
+
+type BlockStatus string
+
+const (
+	BlockStatusPlanned    BlockStatus = "planned"
+	BlockStatusReady      BlockStatus = "ready"
+	BlockStatusInProgress BlockStatus = "in_progress"
+	BlockStatusCompleted  BlockStatus = "completed"
+	BlockStatusSkipped    BlockStatus = "skipped"
+)
+
+type Block struct {
+	ID              uuid.UUID              `json:"id" db:"id"`
+	EventID         uuid.UUID              `json:"event_id" db:"event_id"`
+	UserID          uuid.UUID              `json:"user_id" db:"user_id"`
+	Title           string                 `json:"title" db:"title"`
+	Description     *string                `json:"description,omitempty" db:"description"`
+	Topic           *string                `json:"topic,omitempty" db:"topic"`
+	EstimatedLength int                    `json:"estimated_length" db:"estimated_length"` // in minutes
+	ActualLength    *int                   `json:"actual_length,omitempty" db:"actual_length"`
+	OrderIndex      int                    `json:"order_index" db:"order_index"`
+	BlockType       BlockType              `json:"block_type" db:"block_type"`
+	Status          BlockStatus            `json:"status" db:"status"`
+	Metadata        map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt       time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at" db:"updated_at"`
+}
+
+// Junction table for block-guest relationships
+type BlockGuest struct {
+	ID        uuid.UUID  `json:"id" db:"id"`
+	BlockID   uuid.UUID  `json:"block_id" db:"block_id"`
+	GuestID   uuid.UUID  `json:"guest_id" db:"guest_id"`
+	Role      *string    `json:"role,omitempty" db:"role"`
+	Notes     *string    `json:"notes,omitempty" db:"notes"`
+	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+}
+
+// Junction table for block-media relationships
+type BlockMedia struct {
+	ID          uuid.UUID  `json:"id" db:"id"`
+	BlockID     uuid.UUID  `json:"block_id" db:"block_id"`
+	MediaID     uuid.UUID  `json:"media_id" db:"media_id"`
+	MediaType   string     `json:"media_type" db:"media_type"`
+	Title       *string    `json:"title,omitempty" db:"title"`
+	Description *string    `json:"description,omitempty" db:"description"`
+	OrderIndex  int        `json:"order_index" db:"order_index"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+}
+
+// Block API Request/Response Types
+
+type AddBlockRequest struct {
+	EventID         string                 `json:"event_id" binding:"required,uuid"`
+	Title           string                 `json:"title" binding:"required,min=1,max=255"`
+	Description     *string                `json:"description,omitempty"`
+	Topic           *string                `json:"topic,omitempty"`
+	EstimatedLength int                    `json:"estimated_length" binding:"required,min=1,max=480"`
+	BlockType       BlockType              `json:"block_type,omitempty"`
+	OrderIndex      int                    `json:"order_index,omitempty"`
+	GuestIDs        []string               `json:"guest_ids,omitempty"`
+	Media           []BlockMediaInput      `json:"media,omitempty"`
+	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type UpdateBlockRequest struct {
+	BlockID         string                 `json:"block_id" binding:"required,uuid"`
+	Title           *string                `json:"title,omitempty"`
+	Description     *string                `json:"description,omitempty"`
+	Topic           *string                `json:"topic,omitempty"`
+	EstimatedLength *int                   `json:"estimated_length,omitempty"`
+	ActualLength    *int                   `json:"actual_length,omitempty"`
+	BlockType       *BlockType             `json:"block_type,omitempty"`
+	Status          *BlockStatus           `json:"status,omitempty"`
+	GuestIDs        []string               `json:"guest_ids,omitempty"`
+	Media           []BlockMediaInput      `json:"media,omitempty"`
+	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type ReorderBlocksRequest struct {
+	EventID     string       `json:"event_id" binding:"required,uuid"`
+	BlockOrders []BlockOrder `json:"block_orders" binding:"required,min=1"`
+}
+
+type BlockOrder struct {
+	BlockID    string `json:"block_id" binding:"required,uuid"`
+	OrderIndex int    `json:"order_index" binding:"required,min=0"`
+}
+
+type DeleteBlockRequest struct {
+	BlockID          string `json:"block_id" binding:"required,uuid"`
+	ReorderRemaining bool   `json:"reorder_remaining,omitempty"`
+}
+
+type BlockMediaInput struct {
+	MediaID     string  `json:"media_id" binding:"required,uuid"`
+	MediaType   string  `json:"media_type" binding:"required"`
+	Title       *string `json:"title,omitempty"`
+	Description *string `json:"description,omitempty"`
+	OrderIndex  int     `json:"order_index,omitempty"`
+}
+
+type AddBlockResponse struct {
+	Success bool         `json:"success"`
+	Data    *BlockDetail `json:"data,omitempty"`
+	Error   string       `json:"error,omitempty"`
+}
+
+type UpdateBlockResponse struct {
+	Success bool         `json:"success"`
+	Data    *BlockDetail `json:"data,omitempty"`
+	Error   string       `json:"error,omitempty"`
+}
+
+type GetBlockInfoResponse struct {
+	Success bool           `json:"success"`
+	Data    *BlockInfoData `json:"data,omitempty"`
+	Error   string         `json:"error,omitempty"`
+}
+
+type BlockInfoData struct {
+	Block     *BlockDetail   `json:"block"`
+	EventInfo *EventSummary  `json:"event_info"`
+}
+
+type EventSummary struct {
+	ID               uuid.UUID `json:"id"`
+	ShowName         string    `json:"show_name"`
+	StartDateTime    time.Time `json:"start_datetime"`
+	TotalBlocks      int       `json:"total_blocks"`
+	TotalEstimatedTime int     `json:"total_estimated_time"`
+}
+
+type BlockDetail struct {
+	Block
+	Guests []BlockGuestDetail `json:"guests"`
+	Media  []BlockMediaDetail `json:"media"`
+}
+
+type BlockGuestDetail struct {
+	ID             uuid.UUID     `json:"id"`
+	Name           string        `json:"name"`
+	Surname        string        `json:"surname"`
+	ShortName      *string       `json:"short_name,omitempty"`
+	Role           *string       `json:"role,omitempty"`
+	Notes          *string       `json:"notes,omitempty"`
+	PrimaryContact *GuestContact `json:"primary_contact,omitempty"`
+}
+
+type BlockMediaDetail struct {
+	MediaID     uuid.UUID `json:"media_id"`
+	MediaType   string    `json:"media_type"`
+	Title       *string   `json:"title,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	FileName    string    `json:"file_name"`
+	FileSize    int64     `json:"file_size"`
+	S3URL       string    `json:"s3_url"`
+	OrderIndex  int       `json:"order_index"`
+}
+
+type ReorderBlocksResponse struct {
+	Success bool              `json:"success"`
+	Data    *ReorderBlocksData `json:"data,omitempty"`
+	Error   string            `json:"error,omitempty"`
+}
+
+type ReorderBlocksData struct {
+	EventID            string              `json:"event_id"`
+	Blocks             []BlockOrderSummary `json:"blocks"`
+	TotalEstimatedTime int                 `json:"total_estimated_time"`
+}
+
+type BlockOrderSummary struct {
+	BlockID    string `json:"block_id"`
+	Title      string `json:"title"`
+	OrderIndex int    `json:"order_index"`
+}
+
+type DeleteBlockResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message,omitempty"`
+	Data    *DeleteBlockData `json:"data,omitempty"`
+	Error   string          `json:"error,omitempty"`
+}
+
+type DeleteBlockData struct {
+	BlockID                  string    `json:"block_id"`
+	DeletedAt                time.Time `json:"deleted_at"`
+	RemainingBlocksReordered bool      `json:"remaining_blocks_reordered"`
+}
+
+type EventBlocksResponse struct {
+	Success bool             `json:"success"`
+	Data    *EventBlocksData `json:"data,omitempty"`
+	Error   string           `json:"error,omitempty"`
+}
+
+type EventBlocksData struct {
+	EventID            string         `json:"event_id"`
+	Blocks             []BlockSummary `json:"blocks"`
+	TotalBlocks        int            `json:"total_blocks"`
+	TotalEstimatedTime int            `json:"total_estimated_time"`
+	TotalActualTime    int            `json:"total_actual_time"`
+}
+
+type BlockSummary struct {
+	ID              uuid.UUID   `json:"id"`
+	Title           string      `json:"title"`
+	Topic           *string     `json:"topic,omitempty"`
+	EstimatedLength int         `json:"estimated_length"`
+	ActualLength    *int        `json:"actual_length,omitempty"`
+	OrderIndex      int         `json:"order_index"`
+	BlockType       BlockType   `json:"block_type"`
+	Status          BlockStatus `json:"status"`
+	GuestCount      int         `json:"guest_count"`
+	MediaCount      int         `json:"media_count"`
+}

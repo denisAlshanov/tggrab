@@ -508,6 +508,104 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 				EXECUTE FUNCTION update_updated_at_column();
 			`,
 		},
+		{
+			Version:     9,
+			Description: "Add blocks system for show structuring",
+			SQL: `
+				-- Create block type enum
+				DO $$ BEGIN
+					CREATE TYPE block_type AS ENUM (
+						'intro', 'main', 'interview', 'qa', 'break', 'outro', 'custom'
+					);
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Create block status enum
+				DO $$ BEGIN
+					CREATE TYPE block_status AS ENUM (
+						'planned', 'ready', 'in_progress', 'completed', 'skipped'
+					);
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Create blocks table
+				CREATE TABLE IF NOT EXISTS blocks (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+					user_id UUID NOT NULL,
+					title VARCHAR(255) NOT NULL,
+					description TEXT,
+					topic VARCHAR(500),
+					estimated_length INTEGER NOT NULL DEFAULT 5, -- minutes
+					actual_length INTEGER,
+					order_index INTEGER NOT NULL,
+					block_type block_type DEFAULT 'custom',
+					status block_status DEFAULT 'planned',
+					metadata JSONB DEFAULT '{}'::jsonb,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					
+					-- Constraints
+					CONSTRAINT valid_title CHECK (LENGTH(TRIM(title)) > 0),
+					CONSTRAINT positive_estimated_length CHECK (estimated_length > 0),
+					CONSTRAINT positive_actual_length CHECK (actual_length IS NULL OR actual_length > 0),
+					CONSTRAINT unique_event_order UNIQUE(event_id, order_index)
+				);
+
+				-- Create indexes for blocks
+				CREATE INDEX IF NOT EXISTS idx_blocks_event_id ON blocks(event_id);
+				CREATE INDEX IF NOT EXISTS idx_blocks_user_id ON blocks(user_id);
+				CREATE INDEX IF NOT EXISTS idx_blocks_event_order ON blocks(event_id, order_index);
+				CREATE INDEX IF NOT EXISTS idx_blocks_status ON blocks(status);
+				CREATE INDEX IF NOT EXISTS idx_blocks_type ON blocks(block_type);
+
+				-- Create block_guests junction table
+				CREATE TABLE IF NOT EXISTS block_guests (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					block_id UUID NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
+					guest_id UUID NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
+					role VARCHAR(100),
+					notes TEXT,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					
+					-- Constraints
+					CONSTRAINT unique_block_guest UNIQUE(block_id, guest_id)
+				);
+
+				-- Create indexes for block_guests
+				CREATE INDEX IF NOT EXISTS idx_block_guests_block_id ON block_guests(block_id);
+				CREATE INDEX IF NOT EXISTS idx_block_guests_guest_id ON block_guests(guest_id);
+
+				-- Create block_media junction table
+				CREATE TABLE IF NOT EXISTS block_media (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					block_id UUID NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
+					media_id UUID NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+					media_type VARCHAR(50) NOT NULL,
+					title VARCHAR(255),
+					description TEXT,
+					order_index INTEGER NOT NULL DEFAULT 0,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					
+					-- Constraints
+					CONSTRAINT unique_block_media_order UNIQUE(block_id, order_index)
+				);
+
+				-- Create indexes for block_media
+				CREATE INDEX IF NOT EXISTS idx_block_media_block_id ON block_media(block_id);
+				CREATE INDEX IF NOT EXISTS idx_block_media_media_id ON block_media(media_id);
+				CREATE INDEX IF NOT EXISTS idx_block_media_order ON block_media(block_id, order_index);
+
+				-- Create update trigger for blocks
+				DROP TRIGGER IF EXISTS update_blocks_updated_at ON blocks;
+				CREATE TRIGGER update_blocks_updated_at 
+				BEFORE UPDATE ON blocks
+				FOR EACH ROW 
+				EXECUTE FUNCTION update_updated_at_column();
+			`,
+		},
 	}
 
 	// Run each migration if not already applied
@@ -2146,4 +2244,408 @@ func (p *PostgresDB) SearchGuests(ctx context.Context, userID uuid.UUID, query s
 	}
 
 	return suggestions, nil
+}
+
+// Block operations
+
+func (p *PostgresDB) CreateBlock(ctx context.Context, block *models.Block, guestIDs []uuid.UUID, media []models.BlockMediaInput) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Insert block
+	block.ID = uuid.New()
+	block.CreatedAt = time.Now()
+	block.UpdatedAt = time.Now()
+
+	metadataJSON, err := json.Marshal(block.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	// If order_index is not specified, get the next available index
+	if block.OrderIndex == 0 {
+		var maxOrder sql.NullInt32
+		err = tx.QueryRow(ctx, `
+			SELECT MAX(order_index) FROM blocks WHERE event_id = $1`,
+			block.EventID).Scan(&maxOrder)
+		if err != nil {
+			return fmt.Errorf("failed to get max order index: %w", err)
+		}
+		if maxOrder.Valid {
+			block.OrderIndex = int(maxOrder.Int32) + 1
+		} else {
+			block.OrderIndex = 0
+		}
+	}
+
+	query := `
+		INSERT INTO blocks (id, event_id, user_id, title, description, topic,
+			estimated_length, order_index, block_type, status, metadata, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id, created_at, updated_at`
+
+	err = tx.QueryRow(ctx, query,
+		block.ID, block.EventID, block.UserID, block.Title, block.Description,
+		block.Topic, block.EstimatedLength, block.OrderIndex, block.BlockType,
+		block.Status, metadataJSON, block.CreatedAt, block.UpdatedAt,
+	).Scan(&block.ID, &block.CreatedAt, &block.UpdatedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to create block: %w", err)
+	}
+
+	// Insert block-guest relationships
+	for _, guestID := range guestIDs {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO block_guests (block_id, guest_id)
+			VALUES ($1, $2)`, block.ID, guestID)
+		if err != nil {
+			return fmt.Errorf("failed to add guest to block: %w", err)
+		}
+	}
+
+	// Insert block-media relationships
+	for _, m := range media {
+		mediaID, err := uuid.Parse(m.MediaID)
+		if err != nil {
+			return fmt.Errorf("invalid media ID: %w", err)
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO block_media (block_id, media_id, media_type, title, description, order_index)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			block.ID, mediaID, m.MediaType, m.Title, m.Description, m.OrderIndex)
+		if err != nil {
+			return fmt.Errorf("failed to add media to block: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (p *PostgresDB) GetBlockByID(ctx context.Context, blockID uuid.UUID) (*models.BlockDetail, error) {
+	var block models.BlockDetail
+	var metadataJSON []byte
+
+	// Get block data
+	query := `
+		SELECT id, event_id, user_id, title, description, topic,
+			estimated_length, actual_length, order_index, block_type, status,
+			metadata, created_at, updated_at
+		FROM blocks WHERE id = $1`
+
+	err := p.pool.QueryRow(ctx, query, blockID).Scan(
+		&block.ID, &block.EventID, &block.UserID, &block.Title, &block.Description,
+		&block.Topic, &block.EstimatedLength, &block.ActualLength, &block.OrderIndex,
+		&block.BlockType, &block.Status, &metadataJSON, &block.CreatedAt, &block.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal metadata
+	if len(metadataJSON) > 0 {
+		if err := json.Unmarshal(metadataJSON, &block.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+	}
+
+	// Get guests
+	guestRows, err := p.pool.Query(ctx, `
+		SELECT g.id, g.name, g.surname, g.short_name, g.contacts, bg.role, bg.notes
+		FROM guests g
+		JOIN block_guests bg ON g.id = bg.guest_id
+		WHERE bg.block_id = $1
+		ORDER BY g.name, g.surname`, blockID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block guests: %w", err)
+	}
+	defer guestRows.Close()
+
+	for guestRows.Next() {
+		var guest models.BlockGuestDetail
+		var contactsJSON []byte
+
+		err := guestRows.Scan(
+			&guest.ID, &guest.Name, &guest.Surname, &guest.ShortName,
+			&contactsJSON, &guest.Role, &guest.Notes,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Find primary contact
+		var contacts []models.GuestContact
+		if len(contactsJSON) > 0 {
+			json.Unmarshal(contactsJSON, &contacts)
+			for _, contact := range contacts {
+				if contact.IsPrimary {
+					guest.PrimaryContact = &contact
+					break
+				}
+			}
+		}
+
+		block.Guests = append(block.Guests, guest)
+	}
+
+	// Get media
+	mediaRows, err := p.pool.Query(ctx, `
+		SELECT bm.media_id, bm.media_type, bm.title, bm.description, bm.order_index,
+			m.file_name, m.file_size
+		FROM block_media bm
+		JOIN media m ON bm.media_id = m.id
+		WHERE bm.block_id = $1
+		ORDER BY bm.order_index`, blockID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block media: %w", err)
+	}
+	defer mediaRows.Close()
+
+	for mediaRows.Next() {
+		var media models.BlockMediaDetail
+
+		err := mediaRows.Scan(
+			&media.MediaID, &media.MediaType, &media.Title, &media.Description,
+			&media.OrderIndex, &media.FileName, &media.FileSize,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: Generate S3 URL
+		media.S3URL = fmt.Sprintf("https://s3.example.com/media/%s", media.MediaID)
+
+		block.Media = append(block.Media, media)
+	}
+
+	return &block, nil
+}
+
+func (p *PostgresDB) UpdateBlock(ctx context.Context, block *models.Block, guestIDs []uuid.UUID, media []models.BlockMediaInput) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	block.UpdatedAt = time.Now()
+	metadataJSON, err := json.Marshal(block.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	// Update block
+	query := `
+		UPDATE blocks SET 
+			title = $2, description = $3, topic = $4, estimated_length = $5,
+			actual_length = $6, block_type = $7, status = $8, metadata = $9,
+			updated_at = $10
+		WHERE id = $1`
+
+	_, err = tx.Exec(ctx, query,
+		block.ID, block.Title, block.Description, block.Topic, block.EstimatedLength,
+		block.ActualLength, block.BlockType, block.Status, metadataJSON, block.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update block: %w", err)
+	}
+
+	// Update guest relationships
+	// First, delete existing relationships
+	_, err = tx.Exec(ctx, `DELETE FROM block_guests WHERE block_id = $1`, block.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing guest relationships: %w", err)
+	}
+
+	// Then insert new ones
+	for _, guestID := range guestIDs {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO block_guests (block_id, guest_id)
+			VALUES ($1, $2)`, block.ID, guestID)
+		if err != nil {
+			return fmt.Errorf("failed to add guest to block: %w", err)
+		}
+	}
+
+	// Update media relationships
+	// First, delete existing relationships
+	_, err = tx.Exec(ctx, `DELETE FROM block_media WHERE block_id = $1`, block.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing media relationships: %w", err)
+	}
+
+	// Then insert new ones
+	for _, m := range media {
+		mediaID, err := uuid.Parse(m.MediaID)
+		if err != nil {
+			return fmt.Errorf("invalid media ID: %w", err)
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO block_media (block_id, media_id, media_type, title, description, order_index)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			block.ID, mediaID, m.MediaType, m.Title, m.Description, m.OrderIndex)
+		if err != nil {
+			return fmt.Errorf("failed to add media to block: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (p *PostgresDB) DeleteBlock(ctx context.Context, blockID uuid.UUID, reorderRemaining bool) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Get block info for potential reordering
+	var eventID uuid.UUID
+	var orderIndex int
+	err = tx.QueryRow(ctx, `
+		SELECT event_id, order_index FROM blocks WHERE id = $1`, blockID).Scan(&eventID, &orderIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get block info: %w", err)
+	}
+
+	// Delete the block (cascade will handle junction tables)
+	result, err := tx.Exec(ctx, `DELETE FROM blocks WHERE id = $1`, blockID)
+	if err != nil {
+		return fmt.Errorf("failed to delete block: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("no block found with ID: %s", blockID)
+	}
+
+	// Reorder remaining blocks if requested
+	if reorderRemaining {
+		_, err = tx.Exec(ctx, `
+			UPDATE blocks 
+			SET order_index = order_index - 1 
+			WHERE event_id = $1 AND order_index > $2`,
+			eventID, orderIndex)
+		if err != nil {
+			return fmt.Errorf("failed to reorder remaining blocks: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (p *PostgresDB) ReorderBlocks(ctx context.Context, eventID uuid.UUID, blockOrders []models.BlockOrder) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Verify all blocks belong to the event
+	blockIDs := make([]uuid.UUID, len(blockOrders))
+	for i, bo := range blockOrders {
+		blockID, err := uuid.Parse(bo.BlockID)
+		if err != nil {
+			return fmt.Errorf("invalid block ID: %w", err)
+		}
+		blockIDs[i] = blockID
+	}
+
+	var count int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM blocks 
+		WHERE event_id = $1 AND id = ANY($2)`,
+		eventID, blockIDs).Scan(&count)
+	
+	if err != nil {
+		return err
+	}
+	
+	if count != len(blockOrders) {
+		return fmt.Errorf("some blocks do not belong to this event")
+	}
+
+	// Update order indexes
+	for _, bo := range blockOrders {
+		blockID, _ := uuid.Parse(bo.BlockID) // Already validated above
+		_, err = tx.Exec(ctx, `
+			UPDATE blocks SET order_index = $2, updated_at = $3
+			WHERE id = $1 AND event_id = $4`,
+			blockID, bo.OrderIndex, time.Now(), eventID)
+		if err != nil {
+			return fmt.Errorf("failed to update block order: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (p *PostgresDB) GetEventBlocks(ctx context.Context, eventID uuid.UUID) ([]models.BlockSummary, error) {
+	query := `
+		SELECT b.id, b.title, b.topic, b.estimated_length, b.actual_length,
+			b.order_index, b.block_type, b.status,
+			COUNT(DISTINCT bg.guest_id) as guest_count,
+			COUNT(DISTINCT bm.media_id) as media_count
+		FROM blocks b
+		LEFT JOIN block_guests bg ON b.id = bg.block_id
+		LEFT JOIN block_media bm ON b.id = bm.block_id
+		WHERE b.event_id = $1
+		GROUP BY b.id
+		ORDER BY b.order_index`
+
+	rows, err := p.pool.Query(ctx, query, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var blocks []models.BlockSummary
+	for rows.Next() {
+		var block models.BlockSummary
+		err := rows.Scan(
+			&block.ID, &block.Title, &block.Topic, &block.EstimatedLength,
+			&block.ActualLength, &block.OrderIndex, &block.BlockType,
+			&block.Status, &block.GuestCount, &block.MediaCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, block)
+	}
+
+	return blocks, nil
+}
+
+func (p *PostgresDB) GetEventSummary(ctx context.Context, eventID uuid.UUID) (*models.EventSummary, error) {
+	var summary models.EventSummary
+
+	query := `
+		SELECT e.id, s.show_name, e.start_datetime,
+			COUNT(b.id) as total_blocks,
+			COALESCE(SUM(b.estimated_length), 0) as total_estimated_time
+		FROM events e
+		JOIN shows s ON e.show_id = s.id
+		LEFT JOIN blocks b ON e.id = b.event_id
+		WHERE e.id = $1
+		GROUP BY e.id, s.show_name, e.start_datetime`
+
+	err := p.pool.QueryRow(ctx, query, eventID).Scan(
+		&summary.ID, &summary.ShowName, &summary.StartDateTime,
+		&summary.TotalBlocks, &summary.TotalEstimatedTime,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &summary, nil
 }

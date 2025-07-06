@@ -15,7 +15,7 @@ type Router struct {
 	config *config.Config
 }
 
-func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler) *Router {
+func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler, blockHandler *handlers.BlockHandler) *Router {
 	// Set Gin mode
 	if cfg.Server.Host == "0.0.0.0" {
 		gin.SetMode(gin.ReleaseMode)
@@ -85,6 +85,19 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			guest.GET("/info/:guest_id", guestHandler.GetGuestInfo) // /api/v1/guest/info/{guest_id}
 			guest.DELETE("/delete", guestHandler.DeleteGuest)      // /api/v1/guest/delete
 		}
+
+		// Block endpoints
+		block := api.Group("/block")
+		{
+			block.POST("/add", blockHandler.AddBlock)              // /api/v1/block/add
+			block.PUT("/update", blockHandler.UpdateBlock)         // /api/v1/block/update
+			block.GET("/info/:block_id", blockHandler.GetBlockInfo) // /api/v1/block/info/{block_id}
+			block.PUT("/reorder", blockHandler.ReorderBlocks)      // /api/v1/block/reorder
+			block.DELETE("/delete", blockHandler.DeleteBlock)      // /api/v1/block/delete
+		}
+
+		// Event-specific block endpoints
+		api.GET("/event/:event_id/blocks", blockHandler.GetEventBlocks) // /api/v1/event/{event_id}/blocks
 	}
 
 	return &Router{
