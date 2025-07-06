@@ -15,7 +15,7 @@ type Router struct {
 	config *config.Config
 }
 
-func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler, blockHandler *handlers.BlockHandler) *Router {
+func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler, blockHandler *handlers.BlockHandler, userHandler *handlers.UserHandler, roleHandler *handlers.RoleHandler) *Router {
 	// Set Gin mode
 	if cfg.Server.Host == "0.0.0.0" {
 		gin.SetMode(gin.ReleaseMode)
@@ -98,6 +98,26 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 
 		// Event-specific block endpoints
 		api.GET("/event/:event_id/blocks", blockHandler.GetEventBlocks) // /api/v1/event/{event_id}/blocks
+
+		// User endpoints
+		user := api.Group("/users")
+		{
+			user.POST("/add", userHandler.CreateUser)              // /api/v1/users/add
+			user.DELETE("/delete", userHandler.DeleteUser)         // /api/v1/users/delete
+			user.PUT("/update", userHandler.UpdateUser)            // /api/v1/users/update
+			user.GET("/info/:user_id", userHandler.GetUserInfo)    // /api/v1/users/info/{user_id}
+			user.POST("/list", userHandler.ListUsers)              // /api/v1/users/list
+		}
+
+		// Role endpoints
+		role := api.Group("/roles")
+		{
+			role.POST("/add", roleHandler.CreateRole)              // /api/v1/roles/add
+			role.DELETE("/delete", roleHandler.DeleteRole)         // /api/v1/roles/delete
+			role.PUT("/update", roleHandler.UpdateRole)            // /api/v1/roles/update
+			role.GET("/info/:role_id", roleHandler.GetRoleInfo)    // /api/v1/roles/info/{role_id}
+			role.POST("/list", roleHandler.ListRoles)              // /api/v1/roles/list
+		}
 	}
 
 	return &Router{

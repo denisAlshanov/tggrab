@@ -606,6 +606,133 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 				EXECUTE FUNCTION update_updated_at_column();
 			`,
 		},
+		{
+			Version:     10,
+			Description: "Create users and roles tables with authentication support",
+			SQL: `
+				-- Create user status enum
+				DO $$ BEGIN
+					CREATE TYPE user_status AS ENUM ('active', 'inactive', 'pending', 'suspended');
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Create role status enum
+				DO $$ BEGIN
+					CREATE TYPE role_status AS ENUM ('active', 'inactive');
+				EXCEPTION
+					WHEN duplicate_object THEN null;
+				END $$;
+
+				-- Create users table
+				CREATE TABLE IF NOT EXISTS users (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					name VARCHAR(100) NOT NULL,
+					surname VARCHAR(100) NOT NULL,
+					email VARCHAR(255) UNIQUE NOT NULL,
+					password_hash TEXT,
+					oidc_provider VARCHAR(100),
+					oidc_subject VARCHAR(255),
+					status user_status DEFAULT 'pending',
+					metadata JSONB,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					last_login_at TIMESTAMP WITH TIME ZONE,
+					CONSTRAINT valid_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@gmail\.com$'),
+					CONSTRAINT valid_auth CHECK (
+						(password_hash IS NOT NULL AND oidc_provider IS NULL AND oidc_subject IS NULL) OR
+						(password_hash IS NULL AND oidc_provider IS NOT NULL AND oidc_subject IS NOT NULL)
+					)
+				);
+
+				-- Create indexes for users table
+				CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+				CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+				CREATE INDEX IF NOT EXISTS idx_users_oidc ON users(oidc_provider, oidc_subject);
+
+				-- Create roles table
+				CREATE TABLE IF NOT EXISTS roles (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					name VARCHAR(100) UNIQUE NOT NULL,
+					description TEXT,
+					permissions TEXT[] NOT NULL DEFAULT '{}',
+					status role_status DEFAULT 'active',
+					metadata JSONB,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+				);
+
+				-- Create indexes for roles table
+				CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
+				CREATE INDEX IF NOT EXISTS idx_roles_status ON roles(status);
+
+				-- Create user_roles junction table
+				CREATE TABLE IF NOT EXISTS user_roles (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					UNIQUE(user_id, role_id)
+				);
+
+				-- Create indexes for user_roles table
+				CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles(user_id);
+				CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id);
+
+				-- Create update triggers for users
+				DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+				CREATE TRIGGER update_users_updated_at 
+				BEFORE UPDATE ON users
+				FOR EACH ROW 
+				EXECUTE FUNCTION update_updated_at_column();
+
+				-- Create update triggers for roles
+				DROP TRIGGER IF EXISTS update_roles_updated_at ON roles;
+				CREATE TRIGGER update_roles_updated_at 
+				BEFORE UPDATE ON roles
+				FOR EACH ROW 
+				EXECUTE FUNCTION update_updated_at_column();
+
+				-- Insert default roles
+				INSERT INTO roles (name, description, permissions, status) VALUES
+					('super_admin', 'Full system access', ARRAY[
+						'users:create', 'users:read', 'users:update', 'users:delete',
+						'roles:create', 'roles:read', 'roles:update', 'roles:delete',
+						'shows:create', 'shows:read', 'shows:update', 'shows:delete',
+						'events:create', 'events:read', 'events:update', 'events:delete',
+						'blocks:create', 'blocks:read', 'blocks:update', 'blocks:delete',
+						'media:create', 'media:read', 'media:update', 'media:delete',
+						'posts:create', 'posts:read', 'posts:update', 'posts:delete',
+						'guests:create', 'guests:read', 'guests:update', 'guests:delete'
+					], 'active'),
+					('admin', 'Administrator with limited access', ARRAY[
+						'users:read', 'users:update',
+						'shows:create', 'shows:read', 'shows:update', 'shows:delete',
+						'events:create', 'events:read', 'events:update', 'events:delete',
+						'blocks:create', 'blocks:read', 'blocks:update', 'blocks:delete',
+						'media:create', 'media:read', 'media:update', 'media:delete',
+						'posts:create', 'posts:read', 'posts:update', 'posts:delete',
+						'guests:create', 'guests:read', 'guests:update', 'guests:delete'
+					], 'active'),
+					('content_manager', 'Content creation and management', ARRAY[
+						'shows:create', 'shows:read', 'shows:update',
+						'events:create', 'events:read', 'events:update',
+						'blocks:create', 'blocks:read', 'blocks:update',
+						'media:create', 'media:read', 'media:update',
+						'posts:create', 'posts:read', 'posts:update',
+						'guests:create', 'guests:read', 'guests:update'
+					], 'active'),
+					('viewer', 'Read-only access', ARRAY[
+						'shows:read',
+						'events:read',
+						'blocks:read',
+						'media:read',
+						'posts:read',
+						'guests:read'
+					], 'active')
+				ON CONFLICT (name) DO NOTHING;
+			`,
+		},
 	}
 
 	// Run each migration if not already applied
@@ -2648,4 +2775,626 @@ func (p *PostgresDB) GetEventSummary(ctx context.Context, eventID uuid.UUID) (*m
 	}
 
 	return &summary, nil
+}
+
+// User Management Operations
+
+// CreateUser creates a new user with the specified roles
+func (p *PostgresDB) CreateUser(ctx context.Context, user *models.User, roleIDs []uuid.UUID) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Generate user ID
+	user.ID = uuid.New()
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = time.Now()
+
+	// Insert user
+	query := `
+		INSERT INTO users (id, name, surname, email, password_hash, oidc_provider, 
+			oidc_subject, status, metadata, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, created_at, updated_at`
+
+	err = tx.QueryRow(ctx, query,
+		user.ID, user.Name, user.Surname, user.Email, user.PasswordHash,
+		user.OIDCProvider, user.OIDCSubject, user.Status, user.Metadata,
+		user.CreatedAt, user.UpdatedAt,
+	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+
+	if err != nil {
+		return err
+	}
+
+	// Assign roles
+	for _, roleID := range roleIDs {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO user_roles (user_id, role_id) 
+			VALUES ($1, $2)`,
+			user.ID, roleID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetUserByID retrieves a user by ID with their roles
+func (p *PostgresDB) GetUserByID(ctx context.Context, userID uuid.UUID) (*models.UserWithRoles, error) {
+	var user models.UserWithRoles
+
+	// Get user details
+	query := `
+		SELECT id, name, surname, email, oidc_provider, oidc_subject, 
+			status, metadata, created_at, updated_at, last_login_at
+		FROM users
+		WHERE id = $1`
+
+	err := p.pool.QueryRow(ctx, query, userID).Scan(
+		&user.ID, &user.Name, &user.Surname, &user.Email,
+		&user.OIDCProvider, &user.OIDCSubject, &user.Status,
+		&user.Metadata, &user.CreatedAt, &user.UpdatedAt, &user.LastLoginAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user roles
+	roleQuery := `
+		SELECT r.id, r.name, r.description
+		FROM roles r
+		JOIN user_roles ur ON r.id = ur.role_id
+		WHERE ur.user_id = $1`
+
+	rows, err := p.pool.Query(ctx, roleQuery, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	user.Roles = []models.RoleInfo{}
+	for rows.Next() {
+		var role models.RoleInfo
+		err := rows.Scan(&role.ID, &role.Name, &role.Description)
+		if err != nil {
+			return nil, err
+		}
+		user.Roles = append(user.Roles, role)
+	}
+
+	return &user, nil
+}
+
+// GetUserByEmail retrieves a user by email with their roles
+func (p *PostgresDB) GetUserByEmail(ctx context.Context, email string) (*models.UserWithRoles, error) {
+	var userID uuid.UUID
+
+	// Get user ID by email
+	err := p.pool.QueryRow(ctx, "SELECT id FROM users WHERE email = $1", email).Scan(&userID)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return p.GetUserByID(ctx, userID)
+}
+
+// GetUserByOIDC retrieves a user by OIDC provider and subject
+func (p *PostgresDB) GetUserByOIDC(ctx context.Context, provider, subject string) (*models.UserWithRoles, error) {
+	var userID uuid.UUID
+
+	// Get user ID by OIDC credentials
+	err := p.pool.QueryRow(ctx, 
+		"SELECT id FROM users WHERE oidc_provider = $1 AND oidc_subject = $2", 
+		provider, subject).Scan(&userID)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return p.GetUserByID(ctx, userID)
+}
+
+// GetUserWithPassword retrieves a user with password hash for authentication
+func (p *PostgresDB) GetUserWithPassword(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+
+	query := `
+		SELECT id, name, surname, email, password_hash, oidc_provider, 
+			oidc_subject, status, metadata, created_at, updated_at, last_login_at
+		FROM users
+		WHERE email = $1`
+
+	err := p.pool.QueryRow(ctx, query, email).Scan(
+		&user.ID, &user.Name, &user.Surname, &user.Email, &user.PasswordHash,
+		&user.OIDCProvider, &user.OIDCSubject, &user.Status,
+		&user.Metadata, &user.CreatedAt, &user.UpdatedAt, &user.LastLoginAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// UpdateUser updates user information
+func (p *PostgresDB) UpdateUser(ctx context.Context, user *models.User, roleIDs []uuid.UUID) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Update user
+	query := `
+		UPDATE users SET
+			name = COALESCE($2, name),
+			surname = COALESCE($3, surname),
+			email = COALESCE($4, email),
+			password_hash = COALESCE($5, password_hash),
+			status = COALESCE($6, status),
+			metadata = COALESCE($7, metadata),
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err = tx.Exec(ctx, query,
+		user.ID, user.Name, user.Surname, user.Email,
+		user.PasswordHash, user.Status, user.Metadata,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Update roles if provided
+	if roleIDs != nil {
+		// Remove existing roles
+		_, err = tx.Exec(ctx, "DELETE FROM user_roles WHERE user_id = $1", user.ID)
+		if err != nil {
+			return err
+		}
+
+		// Add new roles
+		for _, roleID := range roleIDs {
+			_, err = tx.Exec(ctx, `
+				INSERT INTO user_roles (user_id, role_id) 
+				VALUES ($1, $2)`,
+				user.ID, roleID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateUserLoginTime updates the last login timestamp
+func (p *PostgresDB) UpdateUserLoginTime(ctx context.Context, userID uuid.UUID) error {
+	_, err := p.pool.Exec(ctx, `
+		UPDATE users SET last_login_at = CURRENT_TIMESTAMP 
+		WHERE id = $1`, userID)
+	return err
+}
+
+// DeleteUser soft deletes a user by changing their status
+func (p *PostgresDB) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := p.pool.Exec(ctx, `
+		UPDATE users SET 
+			status = 'inactive',
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`, userID)
+	return err
+}
+
+// ListUsers retrieves a paginated list of users with filters
+func (p *PostgresDB) ListUsers(ctx context.Context, filters *models.UserFilters, sort *models.UserSortOptions, pagination *models.PaginationOptions) ([]models.UserListItem, int, error) {
+	// Build base query
+	query := `
+		SELECT DISTINCT u.id, u.name, u.surname, u.email, u.status, 
+			u.created_at, u.last_login_at
+		FROM users u`
+
+	countQuery := `SELECT COUNT(DISTINCT u.id) FROM users u`
+
+	// Add joins if filtering by roles
+	if filters != nil && len(filters.RoleIDs) > 0 {
+		joinClause := ` JOIN user_roles ur ON u.id = ur.user_id`
+		query += joinClause
+		countQuery += joinClause
+	}
+
+	// Build WHERE clause
+	var whereConditions []string
+	var args []interface{}
+	argCount := 0
+
+	if filters != nil {
+		if len(filters.Status) > 0 {
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("u.status = ANY($%d)", argCount))
+			args = append(args, filters.Status)
+		}
+
+		if len(filters.RoleIDs) > 0 {
+			roleUUIDs := make([]uuid.UUID, len(filters.RoleIDs))
+			for i, id := range filters.RoleIDs {
+				roleUUIDs[i], _ = uuid.Parse(id)
+			}
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("ur.role_id = ANY($%d)", argCount))
+			args = append(args, roleUUIDs)
+		}
+
+		if filters.Search != "" {
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("(u.name ILIKE $%d OR u.surname ILIKE $%d OR u.email ILIKE $%d)", argCount, argCount, argCount))
+			searchTerm := "%" + filters.Search + "%"
+			args = append(args, searchTerm)
+		}
+
+		if filters.OIDCProvider != nil {
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("u.oidc_provider = $%d", argCount))
+			args = append(args, *filters.OIDCProvider)
+		}
+	}
+
+	if len(whereConditions) > 0 {
+		whereClause := " WHERE " + strings.Join(whereConditions, " AND ")
+		query += whereClause
+		countQuery += whereClause
+	}
+
+	// Get total count
+	var totalCount int
+	err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Add sorting
+	if sort != nil {
+		orderClause := fmt.Sprintf(" ORDER BY u.%s %s", sort.Field, sort.Order)
+		query += orderClause
+	} else {
+		query += " ORDER BY u.created_at DESC"
+	}
+
+	// Add pagination
+	if pagination != nil {
+		limit := pagination.Limit
+		if limit <= 0 {
+			limit = 20
+		}
+		offset := (pagination.Page - 1) * limit
+		query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	}
+
+	// Execute query
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var users []models.UserListItem
+	userIDs := make([]uuid.UUID, 0)
+
+	for rows.Next() {
+		var user models.UserListItem
+		err := rows.Scan(
+			&user.ID, &user.Name, &user.Surname, &user.Email,
+			&user.Status, &user.CreatedAt, &user.LastLoginAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		users = append(users, user)
+		userIDs = append(userIDs, user.ID)
+	}
+
+	// Get roles for all users
+	if len(userIDs) > 0 {
+		roleQuery := `
+			SELECT ur.user_id, r.id, r.name, r.description
+			FROM user_roles ur
+			JOIN roles r ON ur.role_id = r.id
+			WHERE ur.user_id = ANY($1)`
+
+		roleRows, err := p.pool.Query(ctx, roleQuery, userIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		defer roleRows.Close()
+
+		// Create a map to store roles by user ID
+		userRoles := make(map[uuid.UUID][]models.RoleInfo)
+		for roleRows.Next() {
+			var userID uuid.UUID
+			var role models.RoleInfo
+			err := roleRows.Scan(&userID, &role.ID, &role.Name, &role.Description)
+			if err != nil {
+				return nil, 0, err
+			}
+			userRoles[userID] = append(userRoles[userID], role)
+		}
+
+		// Assign roles to users
+		for i := range users {
+			if roles, ok := userRoles[users[i].ID]; ok {
+				users[i].Roles = roles
+			} else {
+				users[i].Roles = []models.RoleInfo{}
+			}
+		}
+	}
+
+	return users, totalCount, nil
+}
+
+// Role Management Operations
+
+// CreateRole creates a new role
+func (p *PostgresDB) CreateRole(ctx context.Context, role *models.Role) error {
+	role.ID = uuid.New()
+	role.CreatedAt = time.Now()
+	role.UpdatedAt = time.Now()
+
+	query := `
+		INSERT INTO roles (id, name, description, permissions, status, metadata, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, created_at, updated_at`
+
+	err := p.pool.QueryRow(ctx, query,
+		role.ID, role.Name, role.Description, role.Permissions,
+		role.Status, role.Metadata, role.CreatedAt, role.UpdatedAt,
+	).Scan(&role.ID, &role.CreatedAt, &role.UpdatedAt)
+
+	return err
+}
+
+// GetRoleByID retrieves a role by ID
+func (p *PostgresDB) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*models.RoleWithUserCount, error) {
+	var role models.RoleWithUserCount
+
+	query := `
+		SELECT r.id, r.name, r.description, r.permissions, r.status, 
+			r.metadata, r.created_at, r.updated_at,
+			COUNT(DISTINCT ur.user_id) as user_count
+		FROM roles r
+		LEFT JOIN user_roles ur ON r.id = ur.role_id
+		WHERE r.id = $1
+		GROUP BY r.id`
+
+	err := p.pool.QueryRow(ctx, query, roleID).Scan(
+		&role.ID, &role.Name, &role.Description, &role.Permissions,
+		&role.Status, &role.Metadata, &role.CreatedAt, &role.UpdatedAt,
+		&role.UserCount,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &role, nil
+}
+
+// GetRoleByName retrieves a role by name
+func (p *PostgresDB) GetRoleByName(ctx context.Context, name string) (*models.Role, error) {
+	var role models.Role
+
+	query := `
+		SELECT id, name, description, permissions, status, 
+			metadata, created_at, updated_at
+		FROM roles
+		WHERE name = $1`
+
+	err := p.pool.QueryRow(ctx, query, name).Scan(
+		&role.ID, &role.Name, &role.Description, &role.Permissions,
+		&role.Status, &role.Metadata, &role.CreatedAt, &role.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &role, nil
+}
+
+// UpdateRole updates role information
+func (p *PostgresDB) UpdateRole(ctx context.Context, role *models.Role) error {
+	query := `
+		UPDATE roles SET
+			name = COALESCE($2, name),
+			description = COALESCE($3, description),
+			permissions = COALESCE($4, permissions),
+			status = COALESCE($5, status),
+			metadata = COALESCE($6, metadata),
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1`
+
+	_, err := p.pool.Exec(ctx, query,
+		role.ID, role.Name, role.Description,
+		role.Permissions, role.Status, role.Metadata,
+	)
+
+	return err
+}
+
+// DeleteRole deletes a role
+func (p *PostgresDB) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
+	// Check if role has associated users
+	var userCount int
+	err := p.pool.QueryRow(ctx, 
+		"SELECT COUNT(*) FROM user_roles WHERE role_id = $1", 
+		roleID).Scan(&userCount)
+	if err != nil {
+		return err
+	}
+
+	if userCount > 0 {
+		return fmt.Errorf("cannot delete role with %d associated users", userCount)
+	}
+
+	// Delete the role
+	_, err = p.pool.Exec(ctx, "DELETE FROM roles WHERE id = $1", roleID)
+	return err
+}
+
+// ListRoles retrieves a paginated list of roles with filters
+func (p *PostgresDB) ListRoles(ctx context.Context, filters *models.RoleFilters, sort *models.RoleSortOptions, pagination *models.PaginationOptions) ([]models.RoleListItem, int, error) {
+	// Build base query
+	query := `
+		SELECT r.id, r.name, r.description, r.permissions, r.status, 
+			r.created_at, COUNT(DISTINCT ur.user_id) as user_count
+		FROM roles r
+		LEFT JOIN user_roles ur ON r.id = ur.role_id`
+
+	countQuery := `SELECT COUNT(*) FROM roles r`
+
+	// Build WHERE clause
+	var whereConditions []string
+	var args []interface{}
+	argCount := 0
+
+	if filters != nil {
+		if len(filters.Status) > 0 {
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("r.status = ANY($%d)", argCount))
+			args = append(args, filters.Status)
+		}
+
+		if filters.Search != "" {
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("(r.name ILIKE $%d OR r.description ILIKE $%d)", argCount, argCount))
+			searchTerm := "%" + filters.Search + "%"
+			args = append(args, searchTerm)
+		}
+
+		if len(filters.Permissions) > 0 {
+			argCount++
+			whereConditions = append(whereConditions, fmt.Sprintf("r.permissions && $%d", argCount))
+			args = append(args, filters.Permissions)
+		}
+	}
+
+	if len(whereConditions) > 0 {
+		whereClause := " WHERE " + strings.Join(whereConditions, " AND ")
+		query += whereClause
+		countQuery += whereClause
+	}
+
+	// Get total count
+	var totalCount int
+	err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Add GROUP BY
+	query += " GROUP BY r.id"
+
+	// Add sorting
+	if sort != nil {
+		orderClause := fmt.Sprintf(" ORDER BY r.%s %s", sort.Field, sort.Order)
+		query += orderClause
+	} else {
+		query += " ORDER BY r.name ASC"
+	}
+
+	// Add pagination
+	if pagination != nil {
+		limit := pagination.Limit
+		if limit <= 0 {
+			limit = 20
+		}
+		offset := (pagination.Page - 1) * limit
+		query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	}
+
+	// Execute query
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var roles []models.RoleListItem
+	for rows.Next() {
+		var role models.RoleListItem
+		err := rows.Scan(
+			&role.ID, &role.Name, &role.Description, &role.Permissions,
+			&role.Status, &role.CreatedAt, &role.UserCount,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, totalCount, nil
+}
+
+// GetUserPermissions retrieves all permissions for a user based on their roles
+func (p *PostgresDB) GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	query := `
+		SELECT DISTINCT unnest(r.permissions) as permission
+		FROM roles r
+		JOIN user_roles ur ON r.id = ur.role_id
+		WHERE ur.user_id = $1 AND r.status = 'active'`
+
+	rows, err := p.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []string
+	for rows.Next() {
+		var permission string
+		if err := rows.Scan(&permission); err != nil {
+			return nil, err
+		}
+		permissions = append(permissions, permission)
+	}
+
+	return permissions, nil
+}
+
+// CheckUserPermission checks if a user has a specific permission
+func (p *PostgresDB) CheckUserPermission(ctx context.Context, userID uuid.UUID, permission string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM roles r
+			JOIN user_roles ur ON r.id = ur.role_id
+			WHERE ur.user_id = $1 
+				AND r.status = 'active'
+				AND $2 = ANY(r.permissions)
+		)`
+
+	var hasPermission bool
+	err := p.pool.QueryRow(ctx, query, userID, permission).Scan(&hasPermission)
+	return hasPermission, err
 }

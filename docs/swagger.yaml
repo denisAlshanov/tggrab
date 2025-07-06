@@ -362,6 +362,33 @@ definitions:
       success:
         type: boolean
     type: object
+  models.CreateRoleRequest:
+    properties:
+      description:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      permissions:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - name
+    - permissions
+    type: object
+  models.CreateRoleResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.Role'
+      success:
+        type: boolean
+    type: object
   models.CreateShowRequest:
     properties:
       additional_key:
@@ -407,6 +434,44 @@ definitions:
         $ref: '#/definitions/models.Show'
       error:
         type: string
+      success:
+        type: boolean
+    type: object
+  models.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      oidc_provider:
+        type: string
+      oidc_subject:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role_ids:
+        items:
+          type: string
+        type: array
+      surname:
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - email
+    - name
+    - surname
+    type: object
+  models.CreateUserResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.UserWithRoles'
       success:
         type: boolean
     type: object
@@ -500,6 +565,22 @@ definitions:
       status:
         type: string
     type: object
+  models.DeleteRoleRequest:
+    properties:
+      role_id:
+        type: string
+    required:
+    - role_id
+    type: object
+  models.DeleteRoleResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.RoleDeleteData'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.DeleteShowRequest:
     properties:
       show_id:
@@ -511,6 +592,22 @@ definitions:
     properties:
       error:
         type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.DeleteUserRequest:
+    properties:
+      user_id:
+        type: string
+    required:
+    - user_id
+    type: object
+  models.DeleteUserResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.UserDeleteData'
       message:
         type: string
       success:
@@ -764,12 +861,26 @@ definitions:
       s3_url:
         type: string
     type: object
+  models.GetRoleInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.RoleWithUserCount'
+      success:
+        type: boolean
+    type: object
   models.GetShowInfoResponse:
     properties:
       data:
         $ref: '#/definitions/models.ShowInfoData'
       error:
         type: string
+      success:
+        type: boolean
+    type: object
+  models.GetUserInfoResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.UserWithRoles'
       success:
         type: boolean
     type: object
@@ -936,6 +1047,33 @@ definitions:
       success:
         type: boolean
     type: object
+  models.ListRolesData:
+    properties:
+      pagination:
+        $ref: '#/definitions/models.PaginationResponse'
+      roles:
+        items:
+          $ref: '#/definitions/models.RoleListItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.ListRolesRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.RoleFilters'
+      pagination:
+        $ref: '#/definitions/models.PaginationOptions'
+      sort:
+        $ref: '#/definitions/models.RoleSortOptions'
+    type: object
+  models.ListRolesResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.ListRolesData'
+      success:
+        type: boolean
+    type: object
   models.ListShowsData:
     properties:
       pagination:
@@ -982,6 +1120,33 @@ definitions:
         type: string
       order:
         type: string
+    type: object
+  models.ListUsersData:
+    properties:
+      pagination:
+        $ref: '#/definitions/models.PaginationResponse'
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/models.UserListItem'
+        type: array
+    type: object
+  models.ListUsersRequest:
+    properties:
+      filters:
+        $ref: '#/definitions/models.UserFilters'
+      pagination:
+        $ref: '#/definitions/models.PaginationOptions'
+      sort:
+        $ref: '#/definitions/models.UserSortOptions'
+    type: object
+  models.ListUsersResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.ListUsersData'
+      success:
+        type: boolean
     type: object
   models.MediaListItem:
     properties:
@@ -1201,6 +1366,125 @@ definitions:
     - RepeatBiweekly
     - RepeatMonthly
     - RepeatCustom
+  models.Role:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      status:
+        $ref: '#/definitions/models.RoleStatus'
+      updated_at:
+        type: string
+    type: object
+  models.RoleDeleteData:
+    properties:
+      deleted_at:
+        type: string
+      role_id:
+        type: string
+    type: object
+  models.RoleFilters:
+    properties:
+      permissions:
+        items:
+          type: string
+        type: array
+      search:
+        type: string
+      status:
+        items:
+          $ref: '#/definitions/models.RoleStatus'
+        type: array
+    type: object
+  models.RoleInfo:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  models.RoleListItem:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      status:
+        $ref: '#/definitions/models.RoleStatus'
+      user_count:
+        type: integer
+    type: object
+  models.RoleSortOptions:
+    properties:
+      field:
+        enum:
+        - name
+        - created_at
+        - updated_at
+        type: string
+      order:
+        enum:
+        - asc
+        - desc
+        type: string
+    required:
+    - field
+    - order
+    type: object
+  models.RoleStatus:
+    enum:
+    - active
+    - inactive
+    type: string
+    x-enum-varnames:
+    - RoleStatusActive
+    - RoleStatusInactive
+  models.RoleWithUserCount:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      status:
+        $ref: '#/definitions/models.RoleStatus'
+      updated_at:
+        type: string
+      user_count:
+        type: integer
+    type: object
   models.SchedulingConfig:
     properties:
       monthly_day:
@@ -1465,6 +1749,175 @@ definitions:
       message:
         type: string
       status:
+        type: string
+    type: object
+  models.UpdateRoleRequest:
+    properties:
+      description:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      role_id:
+        type: string
+      status:
+        $ref: '#/definitions/models.RoleStatus'
+    required:
+    - role_id
+    type: object
+  models.UpdateRoleResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.Role'
+      success:
+        type: boolean
+    type: object
+  models.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role_ids:
+        items:
+          type: string
+        type: array
+      status:
+        $ref: '#/definitions/models.UserStatus'
+      surname:
+        maxLength: 100
+        minLength: 1
+        type: string
+      user_id:
+        type: string
+    required:
+    - user_id
+    type: object
+  models.UpdateUserResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.UserWithRoles'
+      success:
+        type: boolean
+    type: object
+  models.UserDeleteData:
+    properties:
+      deleted_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.UserFilters:
+    properties:
+      oidc_provider:
+        type: string
+      role_ids:
+        items:
+          type: string
+        type: array
+      search:
+        type: string
+      status:
+        items:
+          $ref: '#/definitions/models.UserStatus'
+        type: array
+    type: object
+  models.UserListItem:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      last_login_at:
+        type: string
+      name:
+        type: string
+      roles:
+        items:
+          $ref: '#/definitions/models.RoleInfo'
+        type: array
+      status:
+        $ref: '#/definitions/models.UserStatus'
+      surname:
+        type: string
+    type: object
+  models.UserSortOptions:
+    properties:
+      field:
+        enum:
+        - name
+        - email
+        - created_at
+        - updated_at
+        - last_login_at
+        type: string
+      order:
+        enum:
+        - asc
+        - desc
+        type: string
+    required:
+    - field
+    - order
+    type: object
+  models.UserStatus:
+    enum:
+    - active
+    - inactive
+    - pending
+    - suspended
+    type: string
+    x-enum-varnames:
+    - UserStatusActive
+    - UserStatusInactive
+    - UserStatusPending
+    - UserStatusSuspended
+  models.UserWithRoles:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      last_login_at:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      oidc_provider:
+        type: string
+      oidc_subject:
+        type: string
+      roles:
+        items:
+          $ref: '#/definitions/models.RoleInfo'
+        type: array
+      status:
+        $ref: '#/definitions/models.UserStatus'
+      surname:
+        type: string
+      updated_at:
         type: string
     type: object
   models.WeekDay:
@@ -2502,6 +2955,198 @@ paths:
       summary: Get list of processed posts
       tags:
       - media
+  /api/v1/roles/add:
+    post:
+      consumes:
+      - application/json
+      description: Create a new role with specified permissions
+      parameters:
+      - description: Role creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CreateRoleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create new role
+      tags:
+      - roles
+  /api/v1/roles/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a role if it has no associated users
+      parameters:
+      - description: Role deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteRoleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete role
+      tags:
+      - roles
+  /api/v1/roles/info/{role_id}:
+    get:
+      description: Get detailed information about a specific role including user count
+      parameters:
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetRoleInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get role information
+      tags:
+      - roles
+  /api/v1/roles/list:
+    post:
+      consumes:
+      - application/json
+      description: Get paginated list of roles with filters
+      parameters:
+      - description: List filters and options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ListRolesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListRolesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List roles
+      tags:
+      - roles
+  /api/v1/roles/update:
+    put:
+      consumes:
+      - application/json
+      description: Update existing role details and permissions
+      parameters:
+      - description: Role update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateRoleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update role information
+      tags:
+      - roles
   /api/v1/show/create:
     post:
       consumes:
@@ -2646,6 +3291,193 @@ paths:
       summary: List shows
       tags:
       - shows
+  /api/v1/users/add:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with password or OIDC authentication
+      parameters:
+      - description: User creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CreateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create new user
+      tags:
+      - users
+  /api/v1/users/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a user by setting status to inactive
+      parameters:
+      - description: User deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete user
+      tags:
+      - users
+  /api/v1/users/info/{user_id}:
+    get:
+      description: Get detailed information about a specific user including roles
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetUserInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get user information
+      tags:
+      - users
+  /api/v1/users/list:
+    post:
+      consumes:
+      - application/json
+      description: Get paginated list of users with filters
+      parameters:
+      - description: List filters and options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ListUsersRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListUsersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List users
+      tags:
+      - users
+  /api/v1/users/update:
+    put:
+      consumes:
+      - application/json
+      description: Update existing user details and roles
+      parameters:
+      - description: User update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update user information
+      tags:
+      - users
   /health:
     get:
       description: Check the health of the service and its dependencies

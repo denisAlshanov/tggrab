@@ -951,3 +951,286 @@ type BlockSummary struct {
 	GuestCount      int         `json:"guest_count"`
 	MediaCount      int         `json:"media_count"`
 }
+
+// User and Role Management Models
+
+// UserStatus represents the status of a user
+type UserStatus string
+
+const (
+	UserStatusActive    UserStatus = "active"
+	UserStatusInactive  UserStatus = "inactive"
+	UserStatusPending   UserStatus = "pending"
+	UserStatusSuspended UserStatus = "suspended"
+)
+
+// RoleStatus represents the status of a role
+type RoleStatus string
+
+const (
+	RoleStatusActive   RoleStatus = "active"
+	RoleStatusInactive RoleStatus = "inactive"
+)
+
+// User represents a user account in the system
+type User struct {
+	ID           uuid.UUID              `json:"id" db:"id"`
+	Name         string                 `json:"name" db:"name"`
+	Surname      string                 `json:"surname" db:"surname"`
+	Email        string                 `json:"email" db:"email"`
+	PasswordHash *string                `json:"-" db:"password_hash"`
+	OIDCProvider *string                `json:"oidc_provider,omitempty" db:"oidc_provider"`
+	OIDCSubject  *string                `json:"oidc_subject,omitempty" db:"oidc_subject"`
+	Status       UserStatus             `json:"status" db:"status"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt    time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at" db:"updated_at"`
+	LastLoginAt  *time.Time             `json:"last_login_at,omitempty" db:"last_login_at"`
+}
+
+// Role represents a role in the system with associated permissions
+type Role struct {
+	ID          uuid.UUID              `json:"id" db:"id"`
+	Name        string                 `json:"name" db:"name"`
+	Description *string                `json:"description,omitempty" db:"description"`
+	Permissions []string               `json:"permissions" db:"permissions"`
+	Status      RoleStatus             `json:"status" db:"status"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt   time.Time              `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at" db:"updated_at"`
+}
+
+// UserRole represents the association between a user and a role
+type UserRole struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id"`
+	RoleID    uuid.UUID `json:"role_id" db:"role_id"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
+// UserWithRoles represents a user with their assigned roles
+type UserWithRoles struct {
+	User
+	Roles []RoleInfo `json:"roles"`
+}
+
+// RoleInfo represents basic role information
+type RoleInfo struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+}
+
+// RoleWithUserCount represents a role with the count of associated users
+type RoleWithUserCount struct {
+	Role
+	UserCount int `json:"user_count"`
+}
+
+// User API Request/Response Models
+
+// CreateUserRequest represents the request to create a new user
+type CreateUserRequest struct {
+	Name         string                 `json:"name" binding:"required,min=1,max=100"`
+	Surname      string                 `json:"surname" binding:"required,min=1,max=100"`
+	Email        string                 `json:"email" binding:"required,email"`
+	Password     *string                `json:"password,omitempty" binding:"omitempty,min=8"`
+	OIDCProvider *string                `json:"oidc_provider,omitempty"`
+	OIDCSubject  *string                `json:"oidc_subject,omitempty"`
+	RoleIDs      []string               `json:"role_ids,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// CreateUserResponse represents the response after creating a user
+type CreateUserResponse struct {
+	Success bool           `json:"success"`
+	Data    *UserWithRoles `json:"data"`
+}
+
+// UpdateUserRequest represents the request to update a user
+type UpdateUserRequest struct {
+	UserID   string                 `json:"user_id" binding:"required,uuid"`
+	Name     *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
+	Surname  *string                `json:"surname,omitempty" binding:"omitempty,min=1,max=100"`
+	Email    *string                `json:"email,omitempty" binding:"omitempty,email"`
+	Password *string                `json:"password,omitempty" binding:"omitempty,min=8"`
+	Status   *UserStatus            `json:"status,omitempty"`
+	RoleIDs  []string               `json:"role_ids,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// UpdateUserResponse represents the response after updating a user
+type UpdateUserResponse struct {
+	Success bool           `json:"success"`
+	Data    *UserWithRoles `json:"data"`
+}
+
+// DeleteUserRequest represents the request to delete a user
+type DeleteUserRequest struct {
+	UserID string `json:"user_id" binding:"required,uuid"`
+}
+
+// DeleteUserResponse represents the response after deleting a user
+type DeleteUserResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    *UserDeleteData `json:"data"`
+}
+
+// UserDeleteData contains information about the deleted user
+type UserDeleteData struct {
+	UserID    string    `json:"user_id"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
+// GetUserInfoResponse represents the response for getting user information
+type GetUserInfoResponse struct {
+	Success bool           `json:"success"`
+	Data    *UserWithRoles `json:"data"`
+}
+
+// ListUsersRequest represents the request to list users
+type ListUsersRequest struct {
+	Filters    *UserFilters      `json:"filters,omitempty"`
+	Sort       *UserSortOptions  `json:"sort,omitempty"`
+	Pagination *PaginationOptions `json:"pagination,omitempty"`
+}
+
+// UserFilters represents the filtering options for users
+type UserFilters struct {
+	Status       []UserStatus `json:"status,omitempty"`
+	RoleIDs      []string     `json:"role_ids,omitempty"`
+	Search       string       `json:"search,omitempty"`
+	OIDCProvider *string      `json:"oidc_provider,omitempty"`
+}
+
+// UserSortOptions represents the sorting options for users
+type UserSortOptions struct {
+	Field string `json:"field" binding:"required,oneof=name email created_at updated_at last_login_at"`
+	Order string `json:"order" binding:"required,oneof=asc desc"`
+}
+
+// ListUsersResponse represents the response for listing users
+type ListUsersResponse struct {
+	Success bool           `json:"success"`
+	Data    *ListUsersData `json:"data"`
+}
+
+// ListUsersData contains the list of users and pagination info
+type ListUsersData struct {
+	Users      []UserListItem      `json:"users"`
+	Total      int                 `json:"total"`
+	Pagination *PaginationResponse `json:"pagination"`
+}
+
+// UserListItem represents a user in the list response
+type UserListItem struct {
+	ID          uuid.UUID    `json:"id"`
+	Name        string       `json:"name"`
+	Surname     string       `json:"surname"`
+	Email       string       `json:"email"`
+	Status      UserStatus   `json:"status"`
+	Roles       []RoleInfo   `json:"roles"`
+	CreatedAt   time.Time    `json:"created_at"`
+	LastLoginAt *time.Time   `json:"last_login_at,omitempty"`
+}
+
+// Role API Request/Response Models
+
+// CreateRoleRequest represents the request to create a new role
+type CreateRoleRequest struct {
+	Name        string                 `json:"name" binding:"required,min=1,max=100"`
+	Description *string                `json:"description,omitempty"`
+	Permissions []string               `json:"permissions" binding:"required,min=1"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// CreateRoleResponse represents the response after creating a role
+type CreateRoleResponse struct {
+	Success bool  `json:"success"`
+	Data    *Role `json:"data"`
+}
+
+// UpdateRoleRequest represents the request to update a role
+type UpdateRoleRequest struct {
+	RoleID      string                 `json:"role_id" binding:"required,uuid"`
+	Name        *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
+	Description *string                `json:"description,omitempty"`
+	Permissions []string               `json:"permissions,omitempty"`
+	Status      *RoleStatus            `json:"status,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// UpdateRoleResponse represents the response after updating a role
+type UpdateRoleResponse struct {
+	Success bool  `json:"success"`
+	Data    *Role `json:"data"`
+}
+
+// DeleteRoleRequest represents the request to delete a role
+type DeleteRoleRequest struct {
+	RoleID string `json:"role_id" binding:"required,uuid"`
+}
+
+// DeleteRoleResponse represents the response after deleting a role
+type DeleteRoleResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    *RoleDeleteData `json:"data"`
+}
+
+// RoleDeleteData contains information about the deleted role
+type RoleDeleteData struct {
+	RoleID    string    `json:"role_id"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
+// GetRoleInfoResponse represents the response for getting role information
+type GetRoleInfoResponse struct {
+	Success bool               `json:"success"`
+	Data    *RoleWithUserCount `json:"data"`
+}
+
+// ListRolesRequest represents the request to list roles
+type ListRolesRequest struct {
+	Filters    *RoleFilters      `json:"filters,omitempty"`
+	Sort       *RoleSortOptions  `json:"sort,omitempty"`
+	Pagination *PaginationOptions `json:"pagination,omitempty"`
+}
+
+// RoleFilters represents the filtering options for roles
+type RoleFilters struct {
+	Status      []RoleStatus `json:"status,omitempty"`
+	Search      string       `json:"search,omitempty"`
+	Permissions []string     `json:"permissions,omitempty"`
+}
+
+// RoleSortOptions represents the sorting options for roles
+type RoleSortOptions struct {
+	Field string `json:"field" binding:"required,oneof=name created_at updated_at"`
+	Order string `json:"order" binding:"required,oneof=asc desc"`
+}
+
+// ListRolesResponse represents the response for listing roles
+type ListRolesResponse struct {
+	Success bool           `json:"success"`
+	Data    *ListRolesData `json:"data"`
+}
+
+// ListRolesData contains the list of roles and pagination info
+type ListRolesData struct {
+	Roles      []RoleListItem      `json:"roles"`
+	Total      int                 `json:"total"`
+	Pagination *PaginationResponse `json:"pagination"`
+}
+
+// RoleListItem represents a role in the list response
+type RoleListItem struct {
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description,omitempty"`
+	Permissions []string   `json:"permissions"`
+	Status      RoleStatus `json:"status"`
+	UserCount   int        `json:"user_count"`
+	CreatedAt   time.Time  `json:"created_at"`
+}

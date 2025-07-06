@@ -92,9 +92,11 @@ func main() {
 	eventHandler := handlers.NewEventHandler(db)
 	guestHandler := handlers.NewGuestHandler(db)
 	blockHandler := handlers.NewBlockHandler(db)
+	userHandler := handlers.NewUserHandler(db)
+	roleHandler := handlers.NewRoleHandler(db)
 
 	// Initialize router
-	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler, blockHandler)
+	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler, blockHandler, userHandler, roleHandler)
 
 	// Start server
 	go func() {
