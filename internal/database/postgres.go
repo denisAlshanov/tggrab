@@ -739,6 +739,87 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 				ON CONFLICT (name) DO NOTHING;
 			`,
 		},
+		{
+			Version:     11,
+			Description: "Create authentication and session management tables",
+			SQL: `
+				-- Create sessions table for managing active user sessions
+				CREATE TABLE IF NOT EXISTS sessions (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					refresh_token TEXT UNIQUE NOT NULL,
+					device_name VARCHAR(255),
+					device_type VARCHAR(50),
+					ip_address INET,
+					user_agent TEXT,
+					is_active BOOLEAN DEFAULT true,
+					expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					last_activity TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					metadata JSONB
+				);
+
+				-- Create indexes for sessions table
+				CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+				CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token ON sessions(refresh_token);
+				CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+				CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id, is_active);
+
+				-- Create token blacklist table for revoked JWT tokens
+				CREATE TABLE IF NOT EXISTS token_blacklist (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					token_jti VARCHAR(255) UNIQUE NOT NULL,
+					user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					reason VARCHAR(255)
+				);
+
+				-- Create indexes for token_blacklist table
+				CREATE INDEX IF NOT EXISTS idx_token_blacklist_jti ON token_blacklist(token_jti);
+				CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at ON token_blacklist(expires_at);
+				CREATE INDEX IF NOT EXISTS idx_token_blacklist_cleanup ON token_blacklist(expires_at);
+
+				-- Create oauth_states table for CSRF protection in OAuth flows
+				CREATE TABLE IF NOT EXISTS oauth_states (
+					id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					state VARCHAR(255) UNIQUE NOT NULL,
+					user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+					expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+					metadata JSONB
+				);
+
+				-- Create indexes for oauth_states table
+				CREATE INDEX IF NOT EXISTS idx_oauth_states_state ON oauth_states(state);
+				CREATE INDEX IF NOT EXISTS idx_oauth_states_expires_at ON oauth_states(expires_at);
+
+				-- Create update triggers for sessions
+				DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
+				CREATE TRIGGER update_sessions_last_activity 
+				BEFORE UPDATE ON sessions
+				FOR EACH ROW 
+				EXECUTE FUNCTION update_updated_at_column();
+
+				-- Function to cleanup expired sessions and tokens
+				CREATE OR REPLACE FUNCTION cleanup_expired_auth_data()
+				RETURNS void AS $$
+				BEGIN
+					-- Delete expired sessions
+					DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP;
+					
+					-- Delete expired blacklisted tokens
+					DELETE FROM token_blacklist WHERE expires_at < CURRENT_TIMESTAMP;
+					
+					-- Delete expired OAuth states
+					DELETE FROM oauth_states WHERE expires_at < CURRENT_TIMESTAMP;
+				END;
+				$$ LANGUAGE plpgsql;
+
+				-- Create a scheduled cleanup job (can be called by cron or application)
+				-- This is just the function definition, actual scheduling would be done externally
+			`,
+		},
 	}
 
 	// Run each migration if not already applied
@@ -3403,4 +3484,280 @@ func (p *PostgresDB) CheckUserPermission(ctx context.Context, userID uuid.UUID, 
 	var hasPermission bool
 	err := p.pool.QueryRow(ctx, query, userID, permission).Scan(&hasPermission)
 	return hasPermission, err
+}
+
+// Session Management Operations
+
+// CreateSession creates a new user session
+func (p *PostgresDB) CreateSession(ctx context.Context, session *models.Session) error {
+	session.ID = uuid.New()
+	session.CreatedAt = time.Now()
+	session.LastActivity = time.Now()
+
+	query := `
+		INSERT INTO sessions (id, user_id, refresh_token, device_name, device_type, 
+			ip_address, user_agent, is_active, expires_at, created_at, last_activity, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id, created_at, last_activity`
+
+	err := p.pool.QueryRow(ctx, query,
+		session.ID, session.UserID, session.RefreshToken, session.DeviceName,
+		session.DeviceType, session.IPAddress, session.UserAgent, session.IsActive,
+		session.ExpiresAt, session.CreatedAt, session.LastActivity, session.Metadata,
+	).Scan(&session.ID, &session.CreatedAt, &session.LastActivity)
+
+	return err
+}
+
+// GetSessionByID retrieves a session by ID
+func (p *PostgresDB) GetSessionByID(ctx context.Context, sessionID uuid.UUID) (*models.Session, error) {
+	var session models.Session
+
+	query := `
+		SELECT id, user_id, refresh_token, device_name, device_type, ip_address,
+			user_agent, is_active, expires_at, created_at, last_activity, metadata
+		FROM sessions
+		WHERE id = $1`
+
+	err := p.pool.QueryRow(ctx, query, sessionID).Scan(
+		&session.ID, &session.UserID, &session.RefreshToken, &session.DeviceName,
+		&session.DeviceType, &session.IPAddress, &session.UserAgent, &session.IsActive,
+		&session.ExpiresAt, &session.CreatedAt, &session.LastActivity, &session.Metadata,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &session, nil
+}
+
+// GetSessionByRefreshToken retrieves a session by refresh token
+func (p *PostgresDB) GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*models.Session, error) {
+	var session models.Session
+
+	query := `
+		SELECT id, user_id, refresh_token, device_name, device_type, ip_address,
+			user_agent, is_active, expires_at, created_at, last_activity, metadata
+		FROM sessions
+		WHERE refresh_token = $1 AND is_active = true`
+
+	err := p.pool.QueryRow(ctx, query, refreshToken).Scan(
+		&session.ID, &session.UserID, &session.RefreshToken, &session.DeviceName,
+		&session.DeviceType, &session.IPAddress, &session.UserAgent, &session.IsActive,
+		&session.ExpiresAt, &session.CreatedAt, &session.LastActivity, &session.Metadata,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &session, nil
+}
+
+// UpdateSession updates session information
+func (p *PostgresDB) UpdateSession(ctx context.Context, session *models.Session) error {
+	query := `
+		UPDATE sessions SET
+			refresh_token = $2,
+			device_name = $3,
+			device_type = $4,
+			ip_address = $5,
+			user_agent = $6,
+			is_active = $7,
+			expires_at = $8,
+			last_activity = CURRENT_TIMESTAMP,
+			metadata = $9
+		WHERE id = $1`
+
+	_, err := p.pool.Exec(ctx, query,
+		session.ID, session.RefreshToken, session.DeviceName, session.DeviceType,
+		session.IPAddress, session.UserAgent, session.IsActive, session.ExpiresAt,
+		session.Metadata,
+	)
+
+	return err
+}
+
+// UpdateSessionActivity updates the last activity timestamp for a session
+func (p *PostgresDB) UpdateSessionActivity(ctx context.Context, sessionID uuid.UUID) error {
+	query := `
+		UPDATE sessions SET last_activity = CURRENT_TIMESTAMP 
+		WHERE id = $1 AND is_active = true`
+
+	_, err := p.pool.Exec(ctx, query, sessionID)
+	return err
+}
+
+// DeleteSession deletes a session by ID
+func (p *PostgresDB) DeleteSession(ctx context.Context, sessionID uuid.UUID) error {
+	query := `DELETE FROM sessions WHERE id = $1`
+	_, err := p.pool.Exec(ctx, query, sessionID)
+	return err
+}
+
+// DeleteUserSessions deletes all sessions for a user
+func (p *PostgresDB) DeleteUserSessions(ctx context.Context, userID uuid.UUID) error {
+	query := `DELETE FROM sessions WHERE user_id = $1`
+	_, err := p.pool.Exec(ctx, query, userID)
+	return err
+}
+
+// GetUserSessions retrieves all active sessions for a user
+func (p *PostgresDB) GetUserSessions(ctx context.Context, userID uuid.UUID) ([]models.Session, error) {
+	query := `
+		SELECT id, user_id, refresh_token, device_name, device_type, ip_address,
+			user_agent, is_active, expires_at, created_at, last_activity, metadata
+		FROM sessions
+		WHERE user_id = $1 AND is_active = true AND expires_at > CURRENT_TIMESTAMP
+		ORDER BY last_activity DESC`
+
+	rows, err := p.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []models.Session
+	for rows.Next() {
+		var session models.Session
+		err := rows.Scan(
+			&session.ID, &session.UserID, &session.RefreshToken, &session.DeviceName,
+			&session.DeviceType, &session.IPAddress, &session.UserAgent, &session.IsActive,
+			&session.ExpiresAt, &session.CreatedAt, &session.LastActivity, &session.Metadata,
+		)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+
+	return sessions, nil
+}
+
+// Token Blacklist Operations
+
+// CreateTokenBlacklist adds a token to the blacklist
+func (p *PostgresDB) CreateTokenBlacklist(ctx context.Context, blacklist *models.TokenBlacklist) error {
+	blacklist.ID = uuid.New()
+	blacklist.CreatedAt = time.Now()
+
+	query := `
+		INSERT INTO token_blacklist (id, token_jti, user_id, expires_at, created_at, reason)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at`
+
+	err := p.pool.QueryRow(ctx, query,
+		blacklist.ID, blacklist.TokenJTI, blacklist.UserID,
+		blacklist.ExpiresAt, blacklist.CreatedAt, blacklist.Reason,
+	).Scan(&blacklist.ID, &blacklist.CreatedAt)
+
+	return err
+}
+
+// IsTokenBlacklisted checks if a token is blacklisted
+func (p *PostgresDB) IsTokenBlacklisted(ctx context.Context, jti string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM token_blacklist 
+			WHERE token_jti = $1 AND expires_at > CURRENT_TIMESTAMP
+		)`
+
+	var exists bool
+	err := p.pool.QueryRow(ctx, query, jti).Scan(&exists)
+	return exists, err
+}
+
+// DeleteExpiredTokens removes expired tokens from blacklist
+func (p *PostgresDB) DeleteExpiredTokens(ctx context.Context) error {
+	query := `DELETE FROM token_blacklist WHERE expires_at <= CURRENT_TIMESTAMP`
+	_, err := p.pool.Exec(ctx, query)
+	return err
+}
+
+// OAuth State Management Operations
+
+// CreateOAuthState creates a new OAuth state for CSRF protection
+func (p *PostgresDB) CreateOAuthState(ctx context.Context, state *models.OAuthState) error {
+	query := `
+		INSERT INTO oauth_states (id, state, user_id, expires_at, created_at, metadata)
+		VALUES (gen_random_uuid(), $1, $2, $3, CURRENT_TIMESTAMP, $4)`
+
+	_, err := p.pool.Exec(ctx, query, state.State, nil, state.ExpiresAt, nil)
+	return err
+}
+
+// ValidateOAuthState validates and consumes an OAuth state
+func (p *PostgresDB) ValidateOAuthState(ctx context.Context, state string) (bool, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if state exists and is not expired
+	var exists bool
+	checkQuery := `
+		SELECT EXISTS(
+			SELECT 1 FROM oauth_states 
+			WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP
+		)`
+
+	err = tx.QueryRow(ctx, checkQuery, state).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	if !exists {
+		return false, nil
+	}
+
+	// Delete the state (one-time use)
+	deleteQuery := `DELETE FROM oauth_states WHERE state = $1`
+	_, err = tx.Exec(ctx, deleteQuery, state)
+	if err != nil {
+		return false, err
+	}
+
+	return true, tx.Commit(ctx)
+}
+
+// GetOAuthState retrieves an OAuth state record
+func (p *PostgresDB) GetOAuthState(ctx context.Context, state string) (*models.OAuthState, error) {
+	var oauthState models.OAuthState
+	query := `
+		SELECT state, expires_at, user_id
+		FROM oauth_states 
+		WHERE state = $1 AND expires_at > CURRENT_TIMESTAMP`
+
+	err := p.pool.QueryRow(ctx, query, state).Scan(
+		&oauthState.State, &oauthState.ExpiresAt, &oauthState.UserID)
+	
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &oauthState, nil
+}
+
+// DeleteOAuthState deletes an OAuth state record
+func (p *PostgresDB) DeleteOAuthState(ctx context.Context, state string) error {
+	_, err := p.pool.Exec(ctx, `DELETE FROM oauth_states WHERE state = $1`, state)
+	return err
+}
+
+// CleanupExpiredAuthData removes expired sessions, tokens, and OAuth states
+func (p *PostgresDB) CleanupExpiredAuthData(ctx context.Context) error {
+	query := `SELECT cleanup_expired_auth_data()`
+	_, err := p.pool.Exec(ctx, query)
+	return err
 }

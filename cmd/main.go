@@ -19,6 +19,11 @@
 // @name X-API-Key
 // @description API key authentication
 
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Bearer token authentication. Format: "Bearer {token}"
+
 package main
 
 import (
@@ -27,12 +32,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "github.com/denisAlshanov/stPlaner/docs" // Import for swagger docs
 	"github.com/denisAlshanov/stPlaner/internal/api/handlers"
 	"github.com/denisAlshanov/stPlaner/internal/api/router"
 	"github.com/denisAlshanov/stPlaner/internal/config"
 	"github.com/denisAlshanov/stPlaner/internal/database"
+	"github.com/denisAlshanov/stPlaner/internal/services/auth"
 	"github.com/denisAlshanov/stPlaner/internal/services/downloader"
 	"github.com/denisAlshanov/stPlaner/internal/services/storage"
 	"github.com/denisAlshanov/stPlaner/internal/services/telegram"
@@ -84,6 +91,26 @@ func main() {
 	// Initialize downloader service
 	downloaderService := downloader.NewDownloader(db, s3Storage, telegramClient, youtubeClient, &cfg.Download)
 
+	// Initialize authentication services
+	jwtConfig := auth.JWTConfig{
+		SecretKey:            cfg.API.JWTSecret,
+		AccessTokenDuration:  15 * time.Minute,
+		RefreshTokenDuration: 7 * 24 * time.Hour, // 7 days
+		Issuer:               "stPlaner",
+	}
+	
+	jwtService := auth.NewJWTService(jwtConfig)
+	sessionService := auth.NewSessionService(db, jwtService)
+	
+	// Initialize Google OIDC service
+	googleConfig := auth.GoogleOIDCConfig{
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		RedirectURI:  os.Getenv("GOOGLE_REDIRECT_URI"),
+		Scopes:       []string{"openid", "email", "profile"},
+	}
+	googleService := auth.NewGoogleOIDCService(googleConfig, db, sessionService)
+
 	// Initialize handlers
 	postHandler := handlers.NewPostHandler(db, downloaderService)
 	mediaHandler := handlers.NewMediaHandler(db, s3Storage, telegramClient, youtubeClient)
@@ -94,9 +121,10 @@ func main() {
 	blockHandler := handlers.NewBlockHandler(db)
 	userHandler := handlers.NewUserHandler(db)
 	roleHandler := handlers.NewRoleHandler(db)
+	authHandler := handlers.NewAuthHandlers(db, jwtService, sessionService, googleService)
 
 	// Initialize router
-	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler, blockHandler, userHandler, roleHandler)
+	r := router.NewRouter(cfg, postHandler, mediaHandler, healthHandler, showHandler, eventHandler, guestHandler, blockHandler, userHandler, roleHandler, authHandler, jwtService, sessionService)
 
 	// Start server
 	go func() {

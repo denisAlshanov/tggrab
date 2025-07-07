@@ -1234,3 +1234,219 @@ type RoleListItem struct {
 	UserCount   int        `json:"user_count"`
 	CreatedAt   time.Time  `json:"created_at"`
 }
+
+// Authentication and Session Management Models
+
+// Session represents an active user session
+type Session struct {
+	ID           uuid.UUID              `json:"id" db:"id"`
+	UserID       uuid.UUID              `json:"user_id" db:"user_id"`
+	RefreshToken string                 `json:"-" db:"refresh_token"`
+	DeviceName   *string                `json:"device_name,omitempty" db:"device_name"`
+	DeviceType   *string                `json:"device_type,omitempty" db:"device_type"`
+	IPAddress    *string                `json:"ip_address,omitempty" db:"ip_address"`
+	UserAgent    *string                `json:"user_agent,omitempty" db:"user_agent"`
+	IsActive     bool                   `json:"is_active" db:"is_active"`
+	ExpiresAt    time.Time              `json:"expires_at" db:"expires_at"`
+	CreatedAt    time.Time              `json:"created_at" db:"created_at"`
+	LastActivity time.Time              `json:"last_activity" db:"last_activity"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
+}
+
+// TokenBlacklist represents a revoked JWT token
+type TokenBlacklist struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	TokenJTI  string    `json:"token_jti" db:"token_jti"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id"`
+	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	Reason    string    `json:"reason" db:"reason"`
+}
+
+// SessionWithUser represents a session with user information
+type SessionWithUser struct {
+	Session
+	User UserListItem `json:"user"`
+}
+
+// TokenPair represents access and refresh tokens
+type TokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+}
+
+// DeviceInfo represents device information for sessions
+type DeviceInfo struct {
+	DeviceName string `json:"device_name,omitempty"`
+	DeviceType string `json:"device_type,omitempty"`
+	IPAddress  string `json:"ip_address,omitempty"`
+	UserAgent  string `json:"user_agent,omitempty"`
+}
+
+// Authentication API Request/Response Models
+
+// LoginRequest represents the request to login with email/password
+type LoginRequest struct {
+	Email      string      `json:"email" binding:"required,email"`
+	Password   string      `json:"password" binding:"required"`
+	DeviceInfo *DeviceInfo `json:"device_info,omitempty"`
+}
+
+// LoginResponse represents the response after successful login
+type LoginResponse struct {
+	Success bool              `json:"success"`
+	Data    *LoginResponseData `json:"data"`
+}
+
+// LoginResponseData contains the login response data
+type LoginResponseData struct {
+	TokenPair
+	User *UserWithRoles `json:"user"`
+}
+
+// RefreshTokenRequest represents the request to refresh access token
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// RefreshTokenResponse represents the response after token refresh
+type RefreshTokenResponse struct {
+	Success bool       `json:"success"`
+	Data    *TokenPair `json:"data"`
+}
+
+// LogoutRequest represents the request to logout
+type LogoutRequest struct {
+	RefreshToken     *string `json:"refresh_token,omitempty"`
+	LogoutAllDevices bool    `json:"logout_all_devices,omitempty"`
+}
+
+// LogoutResponse represents the response after logout
+type LogoutResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// VerifyTokenResponse represents the response for token verification
+type VerifyTokenResponse struct {
+	Success bool                    `json:"success"`
+	Data    *TokenVerificationData  `json:"data"`
+}
+
+// TokenVerificationData represents token verification data
+type TokenVerificationData struct {
+	Valid     bool      `json:"valid"`
+	UserID    string    `json:"user_id"`
+	Email     string    `json:"email"`
+	Roles     []string  `json:"roles"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// VerifyTokenData contains token verification data
+type VerifyTokenData struct {
+	Valid       bool      `json:"valid"`
+	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
+	Roles       []string  `json:"roles"`
+	Permissions []string  `json:"permissions"`
+	ExpiresAt   time.Time `json:"expires_at"`
+}
+
+// Google OIDC Models
+
+// GoogleLoginResponse represents the response to initiate Google login
+type GoogleLoginResponse struct {
+	Success bool                   `json:"success"`
+	Data    *GoogleLoginResponseData `json:"data"`
+}
+
+// GoogleLoginResponseData contains Google login initiation data
+type GoogleLoginResponseData struct {
+	AuthURL string `json:"auth_url"`
+	State   string `json:"state"`
+}
+
+// GoogleCallbackRequest represents the Google OAuth callback request
+type GoogleCallbackRequest struct {
+	Code       string      `json:"code" binding:"required"`
+	State      string      `json:"state" binding:"required"`
+	DeviceInfo *DeviceInfo `json:"device_info,omitempty"`
+}
+
+// GoogleCallbackResponse represents the response after Google authentication
+type GoogleCallbackResponse struct {
+	Success bool                      `json:"success"`
+	Data    *GoogleCallbackResponseData `json:"data"`
+}
+
+// GoogleCallbackResponseData contains Google callback response data
+type GoogleCallbackResponseData struct {
+	TokenPair
+	User      *UserWithRoles `json:"user"`
+	IsNewUser bool           `json:"is_new_user"`
+}
+
+// GoogleLinkRequest represents the request to link Google account
+type GoogleLinkRequest struct {
+	IDToken string `json:"id_token" binding:"required"`
+}
+
+// GoogleLinkResponse represents the response after linking Google account
+type GoogleLinkResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// Session Management Models
+
+// SessionListResponse represents the response for listing sessions
+type SessionListResponse struct {
+	Success bool             `json:"success"`
+	Data    *SessionListData `json:"data"`
+}
+
+// SessionListData represents session list data
+type SessionListData struct {
+	Sessions []SessionInfo `json:"sessions"`
+}
+
+// SessionListResponseData contains session list data
+type SessionListResponseData struct {
+	Sessions []SessionInfo `json:"sessions"`
+}
+
+// SessionInfo represents session information for listing
+type SessionInfo struct {
+	ID           string    `json:"id"`
+	DeviceName   *string   `json:"device_name,omitempty"`
+	DeviceType   *string   `json:"device_type,omitempty"`
+	IPAddress    *string   `json:"ip_address,omitempty"`
+	Location     *string   `json:"location,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	LastActivity time.Time `json:"last_activity"`
+	IsCurrent    bool      `json:"is_current"`
+}
+
+// RevokeSessionResponse represents the response after revoking a session
+type RevokeSessionResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// JWT Claims and State Management
+
+// OAuthState represents OAuth state for CSRF protection
+type OAuthState struct {
+	State     string    `json:"state"`
+	ExpiresAt time.Time `json:"expires_at"`
+	UserID    *string   `json:"user_id,omitempty"`
+}
+
+// APIError represents a generic API error response
+type APIError struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Details string `json:"details,omitempty"`
+}

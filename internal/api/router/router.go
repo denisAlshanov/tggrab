@@ -8,6 +8,7 @@ import (
 	"github.com/denisAlshanov/stPlaner/internal/api/handlers"
 	"github.com/denisAlshanov/stPlaner/internal/api/middleware"
 	"github.com/denisAlshanov/stPlaner/internal/config"
+	"github.com/denisAlshanov/stPlaner/internal/services/auth"
 )
 
 type Router struct {
@@ -15,7 +16,7 @@ type Router struct {
 	config *config.Config
 }
 
-func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler, blockHandler *handlers.BlockHandler, userHandler *handlers.UserHandler, roleHandler *handlers.RoleHandler) *Router {
+func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandler *handlers.MediaHandler, healthHandler *handlers.HealthHandler, showHandler *handlers.ShowHandler, eventHandler *handlers.EventHandler, guestHandler *handlers.GuestHandler, blockHandler *handlers.BlockHandler, userHandler *handlers.UserHandler, roleHandler *handlers.RoleHandler, authHandler *handlers.AuthHandlers, jwtService *auth.JWTService, sessionService *auth.SessionService) *Router {
 	// Set Gin mode
 	if cfg.Server.Host == "0.0.0.0" {
 		gin.SetMode(gin.ReleaseMode)
@@ -38,9 +39,33 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 	// Swagger documentation (no auth required)
 	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// API endpoints with authentication and rate limiting
+	// Authentication endpoints (no auth required)
+	authGroup := engine.Group("/api/v1/auth")
+	authGroup.Use(middleware.RateLimitMiddleware(&cfg.API))
+	{
+		// Password authentication
+		authGroup.POST("/login", authHandler.Login)
+		authGroup.POST("/refresh", authHandler.RefreshToken)
+		
+		// Google OIDC authentication
+		authGroup.GET("/google/login", authHandler.GoogleLogin)
+		authGroup.POST("/google/callback", authHandler.GoogleCallback)
+		
+		// Protected authentication endpoints (require JWT)
+		protected := authGroup.Group("")
+		protected.Use(middleware.JWTAuthMiddleware(jwtService, sessionService))
+		{
+			protected.POST("/logout", authHandler.Logout)
+			protected.GET("/verify", authHandler.VerifyToken)
+			protected.GET("/sessions", authHandler.GetActiveSessions)
+			protected.DELETE("/sessions/:session_id", authHandler.RevokeSession)
+			protected.POST("/google/link", authHandler.GoogleLink)
+		}
+	}
+
+	// API endpoints with JWT authentication and rate limiting
 	api := engine.Group("/api/v1")
-	api.Use(middleware.AuthMiddleware(&cfg.API))
+	api.Use(middleware.JWTAuthMiddleware(jwtService, sessionService))
 	api.Use(middleware.RateLimitMiddleware(&cfg.API))
 	{
 		// Media endpoints
