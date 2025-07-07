@@ -63,9 +63,9 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 		}
 	}
 
-	// API endpoints with JWT authentication and rate limiting
+	// API endpoints with hybrid authentication (JWT + API key fallback) and rate limiting
 	api := engine.Group("/api/v1")
-	api.Use(middleware.JWTAuthMiddleware(jwtService, sessionService))
+	api.Use(middleware.HybridAuthMiddleware(&cfg.API, jwtService, sessionService))
 	api.Use(middleware.RateLimitMiddleware(&cfg.API))
 	{
 		// Media endpoints

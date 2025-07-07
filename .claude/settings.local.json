@@ -26,7 +26,8 @@
       "Bash(rg:*)",
       "Bash(go env:*)",
       "Bash(/home/denis/go/bin/swag init:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

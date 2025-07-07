@@ -216,3 +216,59 @@ func extractToken(c *gin.Context) string {
 
 	return bearerToken
 }
+
+// HybridAuthMiddleware provides both JWT and API key authentication
+func HybridAuthMiddleware(cfg *config.APIConfig, jwtService *auth.JWTService, sessionService *auth.SessionService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check for API key first (for initial setup and admin operations)
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey != "" && apiKey == cfg.APIKey {
+			c.Set("auth_method", "api_key")
+			c.Next()
+			return
+		}
+
+		// Check for JWT token
+		token := extractToken(c)
+		if token != "" {
+			// Validate access token
+			claims, err := jwtService.ValidateAccessToken(token)
+			if err == nil {
+				// Check if token is blacklisted
+				blacklisted, err := sessionService.IsTokenBlacklisted(c, claims.ID)
+				if err == nil && !blacklisted {
+					// Update session activity if session ID is available
+					if claims.SessionID != "" {
+						sessionID, err := uuid.Parse(claims.SessionID)
+						if err == nil {
+							// Update session activity (don't fail if this fails)
+							if err := sessionService.UpdateSessionActivity(c, sessionID); err != nil {
+								utils.LogError(c, "Failed to update session activity", err)
+							}
+						}
+					}
+
+					// Store user information in context
+					c.Set("user_id", claims.UserID)
+					c.Set("user_email", claims.Email)
+					c.Set("user_roles", claims.Roles)
+					c.Set("user_permissions", claims.Permissions)
+					c.Set("session_id", claims.SessionID)
+					c.Set("token_jti", claims.ID)
+					c.Set("auth_method", "jwt")
+					c.Next()
+					return
+				}
+			}
+		}
+
+		// No valid authentication found
+		c.JSON(401, gin.H{
+			"error":      "AUTHENTICATION_REQUIRED",
+			"message":    "Valid JWT token or API key required",
+			"request_id": c.GetString("request_id"),
+			"timestamp":  time.Now().Format(time.RFC3339),
+		})
+		c.Abort()
+	}
+}

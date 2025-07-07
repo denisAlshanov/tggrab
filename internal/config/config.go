@@ -102,7 +102,7 @@ func Load() (*Config, error) {
 
 	// API configuration
 	cfg.API.APIKey = getEnvRequired("API_KEY")
-	cfg.API.JWTSecret = getEnv("JWT_SECRET", "")
+	cfg.API.JWTSecret = getEnv("JWT_SECRET", "dev-jwt-secret-change-in-production-must-be-at-least-32-chars")
 	cfg.API.RateLimitRequests = getEnvInt("RATE_LIMIT_REQUESTS", 100)
 	rateLimitWindow, err := time.ParseDuration(getEnv("RATE_LIMIT_WINDOW", "1m"))
 	if err != nil {

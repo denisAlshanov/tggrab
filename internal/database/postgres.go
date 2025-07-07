@@ -2916,13 +2916,13 @@ func (p *PostgresDB) GetUserByID(ctx context.Context, userID uuid.UUID) (*models
 
 	// Get user details
 	query := `
-		SELECT id, name, surname, email, oidc_provider, oidc_subject, 
+		SELECT id, name, surname, email, password_hash, oidc_provider, oidc_subject, 
 			status, metadata, created_at, updated_at, last_login_at
 		FROM users
 		WHERE id = $1`
 
 	err := p.pool.QueryRow(ctx, query, userID).Scan(
-		&user.ID, &user.Name, &user.Surname, &user.Email,
+		&user.ID, &user.Name, &user.Surname, &user.Email, &user.PasswordHash,
 		&user.OIDCProvider, &user.OIDCSubject, &user.Status,
 		&user.Metadata, &user.CreatedAt, &user.UpdatedAt, &user.LastLoginAt,
 	)
@@ -2964,8 +2964,8 @@ func (p *PostgresDB) GetUserByID(ctx context.Context, userID uuid.UUID) (*models
 func (p *PostgresDB) GetUserByEmail(ctx context.Context, email string) (*models.UserWithRoles, error) {
 	var userID uuid.UUID
 
-	// Get user ID by email
-	err := p.pool.QueryRow(ctx, "SELECT id FROM users WHERE email = $1", email).Scan(&userID)
+	// Get user ID by email (only active users for authentication)
+	err := p.pool.QueryRow(ctx, "SELECT id FROM users WHERE email = $1 AND status = 'active'", email).Scan(&userID)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
