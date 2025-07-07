@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -371,5 +373,182 @@ func JWTOnlyMiddleware(jwtService *auth.JWTService, sessionService *auth.Session
 		c.Set("auth_method", "jwt")
 
 		c.Next()
+	}
+}
+
+// CORSMiddleware provides Cross-Origin Resource Sharing support
+func CORSMiddleware(cfg *config.CORSConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Skip CORS if disabled
+		if !cfg.Enabled {
+			c.Next()
+			return
+		}
+
+		origin := c.GetHeader("Origin")
+		method := c.Request.Method
+
+		// Log CORS configuration on first request (debug level)
+		utils.LogDebug(c, "CORS Request", utils.Fields{
+			"origin": origin,
+			"method": method,
+			"profile": cfg.Profile,
+		})
+
+		// Handle preflight OPTIONS request
+		if method == "OPTIONS" {
+			handlePreflightRequest(c, cfg, origin)
+			return
+		}
+
+		// Handle actual request
+		handleActualRequest(c, cfg, origin)
+		c.Next()
+	}
+}
+
+// handlePreflightRequest handles CORS preflight OPTIONS requests
+func handlePreflightRequest(c *gin.Context, cfg *config.CORSConfig, origin string) {
+	// Check if origin is allowed
+	if !isOriginAllowed(origin, cfg.AllowedOrigins) {
+		utils.LogDebug(c, "CORS preflight rejected", utils.Fields{
+			"origin": origin,
+			"reason": "origin not allowed",
+		})
+		c.AbortWithStatus(403)
+		return
+	}
+
+	// Set CORS headers for preflight
+	c.Header("Access-Control-Allow-Origin", origin)
+	c.Header("Access-Control-Allow-Methods", strings.Join(cfg.AllowedMethods, ", "))
+	c.Header("Access-Control-Allow-Headers", strings.Join(cfg.AllowedHeaders, ", "))
+	
+	if cfg.AllowCredentials {
+		c.Header("Access-Control-Allow-Credentials", "true")
+	}
+	
+	if cfg.MaxAge > 0 {
+		c.Header("Access-Control-Max-Age", fmt.Sprintf("%d", cfg.MaxAge))
+	}
+
+	utils.LogDebug(c, "CORS preflight approved", utils.Fields{
+		"origin": origin,
+		"methods": strings.Join(cfg.AllowedMethods, ", "),
+	})
+
+	c.AbortWithStatus(204) // No Content
+}
+
+// handleActualRequest handles actual CORS requests
+func handleActualRequest(c *gin.Context, cfg *config.CORSConfig, origin string) {
+	// Check if origin is allowed
+	if !isOriginAllowed(origin, cfg.AllowedOrigins) {
+		utils.LogDebug(c, "CORS request rejected", utils.Fields{
+			"origin": origin,
+			"reason": "origin not allowed",
+		})
+		return
+	}
+
+	// Set CORS headers for actual request
+	c.Header("Access-Control-Allow-Origin", origin)
+	
+	if len(cfg.ExposedHeaders) > 0 {
+		c.Header("Access-Control-Expose-Headers", strings.Join(cfg.ExposedHeaders, ", "))
+	}
+	
+	if cfg.AllowCredentials {
+		c.Header("Access-Control-Allow-Credentials", "true")
+	}
+
+	utils.LogDebug(c, "CORS request approved", utils.Fields{
+		"origin": origin,
+	})
+}
+
+// isOriginAllowed checks if the given origin is allowed based on the configuration
+func isOriginAllowed(origin string, allowedOrigins []string) bool {
+	if origin == "" {
+		return false
+	}
+
+	for _, allowedOrigin := range allowedOrigins {
+		if matchOrigin(origin, allowedOrigin) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// matchOrigin checks if an origin matches an allowed origin pattern
+func matchOrigin(origin, pattern string) bool {
+	// Exact match
+	if origin == pattern {
+		return true
+	}
+
+	// Wildcard match (e.g., *.example.com)
+	if strings.HasPrefix(pattern, "*.") {
+		domain := pattern[2:] // Remove "*."
+		return strings.HasSuffix(origin, "."+domain) || origin == domain
+	}
+
+	// Special case for "*" (all origins) - should only be used in development
+	if pattern == "*" {
+		return true
+	}
+
+	return false
+}
+
+// ValidateCORSConfig validates CORS configuration and logs warnings for insecure settings
+func ValidateCORSConfig(cfg *config.CORSConfig) {
+	if !cfg.Enabled {
+		fmt.Println("CORS is disabled")
+		return
+	}
+
+	fmt.Printf("CORS Configuration loaded (profile: %s)\n", cfg.Profile)
+	fmt.Printf("  - Allowed Origins: %v\n", cfg.AllowedOrigins)
+	fmt.Printf("  - Allowed Methods: %v\n", cfg.AllowedMethods)
+	fmt.Printf("  - Allowed Headers: %v\n", cfg.AllowedHeaders)
+	fmt.Printf("  - Exposed Headers: %v\n", cfg.ExposedHeaders)
+	fmt.Printf("  - Allow Credentials: %t\n", cfg.AllowCredentials)
+	fmt.Printf("  - Max Age: %d seconds\n", cfg.MaxAge)
+
+	// Security validations
+	for _, origin := range cfg.AllowedOrigins {
+		if origin == "*" && cfg.Profile == "production" {
+			fmt.Println("WARNING: Wildcard origin (*) should not be used in production")
+		}
+		
+		if strings.HasPrefix(origin, "http://") && cfg.Profile == "production" {
+			fmt.Printf("WARNING: Non-HTTPS origin '%s' in production configuration\n", origin)
+		}
+		
+		if strings.Contains(origin, "localhost") && cfg.Profile == "production" {
+			fmt.Printf("WARNING: Localhost origin '%s' in production configuration\n", origin)
+		}
+
+		// Validate URL format
+		if origin != "*" && !strings.HasPrefix(origin, "*.") {
+			if _, err := url.Parse(origin); err != nil {
+				fmt.Printf("WARNING: Invalid origin URL format: %s\n", origin)
+			}
+		}
+	}
+
+	// Check for dangerous methods in production
+	if cfg.Profile == "production" {
+		dangerousMethods := []string{"TRACE", "CONNECT"}
+		for _, method := range cfg.AllowedMethods {
+			for _, dangerous := range dangerousMethods {
+				if method == dangerous {
+					fmt.Printf("WARNING: Potentially dangerous method '%s' allowed in production\n", method)
+				}
+			}
+		}
 	}
 }

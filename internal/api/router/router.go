@@ -26,6 +26,7 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 
 	// Add middleware
 	engine.Use(gin.Recovery())
+	engine.Use(middleware.CORSMiddleware(&cfg.CORS))
 	engine.Use(middleware.CorrelationIDMiddleware())
 
 	// Health endpoints (no auth required)

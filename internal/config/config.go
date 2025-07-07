@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -16,6 +17,7 @@ type Config struct {
 	Telegram TelegramConfig
 	API      APIConfig
 	Download DownloadConfig
+	CORS     CORSConfig
 }
 
 type ServerConfig struct {
@@ -58,6 +60,17 @@ type DownloadConfig struct {
 	MaxConcurrentDownloads int
 	DownloadTimeout        time.Duration
 	MaxFileSize            int64
+}
+
+type CORSConfig struct {
+	Enabled          bool
+	AllowedOrigins   []string
+	AllowedMethods   []string
+	AllowedHeaders   []string
+	ExposedHeaders   []string
+	AllowCredentials bool
+	MaxAge           int
+	Profile          string
 }
 
 func Load() (*Config, error) {
@@ -119,6 +132,9 @@ func Load() (*Config, error) {
 	cfg.Download.DownloadTimeout = downloadTimeout
 	cfg.Download.MaxFileSize = getEnvInt64("MAX_FILE_SIZE", 2*1024*1024*1024) // 2GB default
 
+	// CORS configuration
+	cfg.CORS = loadCORSConfig()
+
 	return cfg, nil
 }
 
@@ -153,4 +169,103 @@ func getEnvInt64(key string, defaultValue int64) int64 {
 		}
 	}
 	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvStringSlice(key string, defaultValue []string) []string {
+	if value := os.Getenv(key); value != "" {
+		return strings.Split(strings.TrimSpace(value), ",")
+	}
+	return defaultValue
+}
+
+// loadCORSConfig loads CORS configuration based on profile or custom settings
+func loadCORSConfig() CORSConfig {
+	profile := getEnv("CORS_PROFILE", "custom")
+	
+	switch profile {
+	case "development":
+		return getDevelopmentCORSConfig()
+	case "production":
+		return getProductionCORSConfig()
+	default:
+		return getCustomCORSConfig()
+	}
+}
+
+// getDevelopmentCORSConfig returns permissive CORS settings for development
+func getDevelopmentCORSConfig() CORSConfig {
+	return CORSConfig{
+		Enabled: getEnvBool("CORS_ENABLED", true),
+		AllowedOrigins: getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{
+			"http://localhost:3000",
+			"http://localhost:3001", 
+			"http://localhost:8080",
+			"http://127.0.0.1:3000",
+			"http://127.0.0.1:3001",
+			"http://127.0.0.1:8080",
+		}),
+		AllowedMethods: getEnvStringSlice("CORS_ALLOWED_METHODS", []string{
+			"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH",
+		}),
+		AllowedHeaders: getEnvStringSlice("CORS_ALLOWED_HEADERS", []string{
+			"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "X-API-Key",
+		}),
+		ExposedHeaders: getEnvStringSlice("CORS_EXPOSED_HEADERS", []string{
+			"X-Total-Count", "X-Page", "X-Per-Page",
+		}),
+		AllowCredentials: getEnvBool("CORS_ALLOW_CREDENTIALS", true),
+		MaxAge:           getEnvInt("CORS_MAX_AGE", 86400),
+		Profile:          "development",
+	}
+}
+
+// getProductionCORSConfig returns secure CORS settings for production
+func getProductionCORSConfig() CORSConfig {
+	return CORSConfig{
+		Enabled: getEnvBool("CORS_ENABLED", true),
+		AllowedOrigins: getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{
+			"https://app.stplaner.com",
+		}),
+		AllowedMethods: getEnvStringSlice("CORS_ALLOWED_METHODS", []string{
+			"GET", "POST", "PUT", "DELETE", "OPTIONS",
+		}),
+		AllowedHeaders: getEnvStringSlice("CORS_ALLOWED_HEADERS", []string{
+			"Origin", "Content-Type", "Accept", "Authorization",
+		}),
+		ExposedHeaders: getEnvStringSlice("CORS_EXPOSED_HEADERS", []string{
+			"X-Total-Count",
+		}),
+		AllowCredentials: getEnvBool("CORS_ALLOW_CREDENTIALS", true),
+		MaxAge:           getEnvInt("CORS_MAX_AGE", 3600),
+		Profile:          "production",
+	}
+}
+
+// getCustomCORSConfig returns CORS settings from individual environment variables
+func getCustomCORSConfig() CORSConfig {
+	return CORSConfig{
+		Enabled: getEnvBool("CORS_ENABLED", true),
+		AllowedOrigins: getEnvStringSlice("CORS_ALLOWED_ORIGINS", []string{
+			"http://localhost:3000",
+		}),
+		AllowedMethods: getEnvStringSlice("CORS_ALLOWED_METHODS", []string{
+			"GET", "POST", "PUT", "DELETE", "OPTIONS",
+		}),
+		AllowedHeaders: getEnvStringSlice("CORS_ALLOWED_HEADERS", []string{
+			"Origin", "Content-Type", "Accept", "Authorization",
+		}),
+		ExposedHeaders: getEnvStringSlice("CORS_EXPOSED_HEADERS", []string{}),
+		AllowCredentials: getEnvBool("CORS_ALLOW_CREDENTIALS", true),
+		MaxAge:           getEnvInt("CORS_MAX_AGE", 3600),
+		Profile:          "custom",
+	}
 }

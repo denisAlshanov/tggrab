@@ -36,6 +36,7 @@ import (
 
 	_ "github.com/denisAlshanov/stPlaner/docs" // Import for swagger docs
 	"github.com/denisAlshanov/stPlaner/internal/api/handlers"
+	"github.com/denisAlshanov/stPlaner/internal/api/middleware"
 	"github.com/denisAlshanov/stPlaner/internal/api/router"
 	"github.com/denisAlshanov/stPlaner/internal/config"
 	"github.com/denisAlshanov/stPlaner/internal/database"
@@ -56,6 +57,9 @@ func main() {
 
 	logger := utils.GetLogger()
 	logger.Info("Starting St. Planer - YouTube Stream Planner service")
+
+	// Validate and log CORS configuration
+	middleware.ValidateCORSConfig(&cfg.CORS)
 
 	// Initialize database
 	db, err := database.NewPostgresDB(&cfg.Postgres)
