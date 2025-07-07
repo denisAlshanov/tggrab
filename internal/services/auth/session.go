@@ -31,22 +31,23 @@ func NewSessionService(db *database.PostgresDB, jwtService *JWTService) *Session
 func (s *SessionService) CreateSession(ctx context.Context, user *models.UserWithRoles, deviceInfo *models.DeviceInfo) (*models.TokenPair, error) {
 	// Generate session ID
 	sessionID := uuid.New()
-	
-	// Generate refresh token
-	refreshToken, err := s.generateSecureToken()
+
+	// Generate JWT token pair first
+	tokenPair, err := s.jwtService.GenerateTokenPair(user, sessionID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// Create session record
+	// Create session record with refresh token
 	session := &models.Session{
 		ID:           sessionID,
 		UserID:       user.ID,
-		RefreshToken: refreshToken,
+		RefreshToken: tokenPair.RefreshToken,
 		IsActive:     true,
 		ExpiresAt:    time.Now().Add(s.jwtService.config.RefreshTokenDuration),
 		CreatedAt:    time.Now(),
 		LastActivity: time.Now(),
+		Metadata:     make(map[string]interface{}),
 	}
 
 	// Set device info if provided
@@ -68,20 +69,6 @@ func (s *SessionService) CreateSession(ctx context.Context, user *models.UserWit
 	// Save session to database
 	if err := s.db.CreateSession(ctx, session); err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
-	}
-
-	// Generate JWT token pair
-	tokenPair, err := s.jwtService.GenerateTokenPair(user, sessionID)
-	if err != nil {
-		// Clean up session if token generation fails
-		s.db.DeleteSession(ctx, sessionID)
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
-	}
-
-	// Update session with refresh token from JWT
-	session.RefreshToken = tokenPair.RefreshToken
-	if err := s.db.UpdateSession(ctx, session); err != nil {
-		return nil, fmt.Errorf("failed to update session: %w", err)
 	}
 
 	return tokenPair, nil

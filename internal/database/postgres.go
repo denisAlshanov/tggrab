@@ -3490,9 +3490,17 @@ func (p *PostgresDB) CheckUserPermission(ctx context.Context, userID uuid.UUID, 
 
 // CreateSession creates a new user session
 func (p *PostgresDB) CreateSession(ctx context.Context, session *models.Session) error {
-	session.ID = uuid.New()
-	session.CreatedAt = time.Now()
-	session.LastActivity = time.Now()
+	// Don't override session ID if already set
+	if session.ID == uuid.Nil {
+		session.ID = uuid.New()
+	}
+	// Don't override timestamps if already set
+	if session.CreatedAt.IsZero() {
+		session.CreatedAt = time.Now()
+	}
+	if session.LastActivity.IsZero() {
+		session.LastActivity = time.Now()
+	}
 
 	query := `
 		INSERT INTO sessions (id, user_id, refresh_token, device_name, device_type, 
