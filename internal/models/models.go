@@ -1029,8 +1029,16 @@ type RoleWithUserCount struct {
 
 // User API Request/Response Models
 
-// CreateUserRequest represents the request to create a new user
+// CreateUserRequest represents the request to create a new user (simplified)
 type CreateUserRequest struct {
+	Name     string `json:"name" binding:"required,min=1,max=100"`
+	Surname  string `json:"surname" binding:"required,min=1,max=100"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+}
+
+// CreateUserRequestLegacy represents the legacy request format (for backward compatibility)
+type CreateUserRequestLegacy struct {
 	Name         string                 `json:"name" binding:"required,min=1,max=100"`
 	Surname      string                 `json:"surname" binding:"required,min=1,max=100"`
 	Email        string                 `json:"email" binding:"required,email"`
@@ -1041,14 +1049,21 @@ type CreateUserRequest struct {
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// CreateUserResponse represents the response after creating a user
+// CreateUserResponse represents the response after creating a user (simplified)
 type CreateUserResponse struct {
-	Success bool           `json:"success"`
-	Data    *UserWithRoles `json:"data"`
+	Success bool  `json:"success"`
+	Data    *User `json:"data"`
 }
 
-// UpdateUserRequest represents the request to update a user
+// UpdateUserRequest represents the request to update a user (simplified)
 type UpdateUserRequest struct {
+	Name    *string `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
+	Surname *string `json:"surname,omitempty" binding:"omitempty,min=1,max=100"`
+	Email   *string `json:"email,omitempty" binding:"omitempty,email"`
+}
+
+// UpdateUserRequestLegacy represents the legacy request format (for backward compatibility)
+type UpdateUserRequestLegacy struct {
 	UserID   string                 `json:"user_id" binding:"required,uuid"`
 	Name     *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
 	Surname  *string                `json:"surname,omitempty" binding:"omitempty,min=1,max=100"`
@@ -1059,14 +1074,19 @@ type UpdateUserRequest struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// UpdateUserResponse represents the response after updating a user
+// UpdateUserResponse represents the response after updating a user (simplified)
 type UpdateUserResponse struct {
-	Success bool           `json:"success"`
-	Data    *UserWithRoles `json:"data"`
+	Success bool  `json:"success"`
+	Data    *User `json:"data"`
 }
 
-// DeleteUserRequest represents the request to delete a user
+// DeleteUserRequest represents the request to delete a user (simplified)
 type DeleteUserRequest struct {
+	Force bool `json:"force,omitempty"`
+}
+
+// DeleteUserRequestLegacy represents the legacy request format (for backward compatibility)
+type DeleteUserRequestLegacy struct {
 	UserID string `json:"user_id" binding:"required,uuid"`
 }
 
@@ -1083,13 +1103,13 @@ type UserDeleteData struct {
 	DeletedAt time.Time `json:"deleted_at"`
 }
 
-// GetUserInfoResponse represents the response for getting user information
+// GetUserInfoResponse represents the response for getting user information (simplified)
 type GetUserInfoResponse struct {
-	Success bool           `json:"success"`
-	Data    *UserWithRoles `json:"data"`
+	Success bool  `json:"success"`
+	Data    *User `json:"data"`
 }
 
-// ListUsersRequest represents the request to list users
+// ListUsersRequest represents the request to list users (legacy format)
 type ListUsersRequest struct {
 	Filters    *UserFilters      `json:"filters,omitempty"`
 	Sort       *UserSortOptions  `json:"sort,omitempty"`
@@ -1110,29 +1130,41 @@ type UserSortOptions struct {
 	Order string `json:"order" binding:"required,oneof=asc desc"`
 }
 
-// ListUsersResponse represents the response for listing users
+// ListUsersResponse represents the response for listing users (simplified)
 type ListUsersResponse struct {
 	Success bool           `json:"success"`
 	Data    *ListUsersData `json:"data"`
 }
 
-// ListUsersData contains the list of users and pagination info
+// ListUsersData contains the list of users and pagination info (simplified)
 type ListUsersData struct {
 	Users      []UserListItem      `json:"users"`
-	Total      int                 `json:"total"`
 	Pagination *PaginationResponse `json:"pagination"`
 }
 
-// UserListItem represents a user in the list response
+// UserListItem represents a user in the list response (simplified)
 type UserListItem struct {
-	ID          uuid.UUID    `json:"id"`
-	Name        string       `json:"name"`
-	Surname     string       `json:"surname"`
-	Email       string       `json:"email"`
-	Status      UserStatus   `json:"status"`
-	Roles       []RoleInfo   `json:"roles"`
-	CreatedAt   time.Time    `json:"created_at"`
-	LastLoginAt *time.Time   `json:"last_login_at,omitempty"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Surname     string     `json:"surname"`
+	Email       string     `json:"email"`
+	Status      UserStatus `json:"status"`
+	CreatedAt   time.Time  `json:"created_at"`
+	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+}
+
+// Role Assignment API Request/Response Models
+
+// AddRoleToUserResponse represents the response after adding a role to a user
+type AddRoleToUserResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// RemoveRoleFromUserResponse represents the response after removing a role from a user
+type RemoveRoleFromUserResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 // Role API Request/Response Models

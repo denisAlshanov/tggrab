@@ -3222,17 +3222,42 @@ func (p *PostgresDB) ListUsers(ctx context.Context, filters *models.UserFilters,
 			userRoles[userID] = append(userRoles[userID], role)
 		}
 
-		// Assign roles to users
-		for i := range users {
-			if roles, ok := userRoles[users[i].ID]; ok {
-				users[i].Roles = roles
-			} else {
-				users[i].Roles = []models.RoleInfo{}
-			}
-		}
+		// Note: Roles are not included in the simplified UserListItem response
 	}
 
 	return users, totalCount, nil
+}
+
+// User-Role Assignment Operations
+
+// AddRoleToUser adds a role to a user
+func (p *PostgresDB) AddRoleToUser(ctx context.Context, userID, roleID uuid.UUID) error {
+	query := `
+		INSERT INTO user_roles (id, user_id, role_id, created_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id, role_id) DO NOTHING`
+
+	_, err := p.pool.Exec(ctx, query, uuid.New(), userID, roleID, time.Now())
+	return err
+}
+
+// RemoveRoleFromUser removes a role from a user
+func (p *PostgresDB) RemoveRoleFromUser(ctx context.Context, userID, roleID uuid.UUID) error {
+	query := `
+		DELETE FROM user_roles 
+		WHERE user_id = $1 AND role_id = $2`
+
+	result, err := p.pool.Exec(ctx, query, userID, roleID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("user role assignment not found")
+	}
+
+	return nil
 }
 
 // Role Management Operations

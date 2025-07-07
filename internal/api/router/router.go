@@ -125,14 +125,26 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 		// Event-specific block endpoints
 		api.GET("/event/:event_id/blocks", blockHandler.GetEventBlocks) // /api/v1/event/{event_id}/blocks
 
-		// User endpoints
+		// User endpoints (Legacy - deprecated)
 		user := api.Group("/users")
 		{
-			user.POST("/add", userHandler.CreateUser)              // /api/v1/users/add
-			user.DELETE("/delete", userHandler.DeleteUser)         // /api/v1/users/delete
-			user.PUT("/update", userHandler.UpdateUser)            // /api/v1/users/update
-			user.GET("/info/:user_id", userHandler.GetUserInfo)    // /api/v1/users/info/{user_id}
-			user.POST("/list", userHandler.ListUsers)              // /api/v1/users/list
+			user.POST("/add", userHandler.CreateUser)              // /api/v1/users/add (DEPRECATED)
+			user.DELETE("/delete", userHandler.DeleteUser)         // /api/v1/users/delete (DEPRECATED)
+			user.PUT("/update", userHandler.UpdateUser)            // /api/v1/users/update (DEPRECATED)
+			user.GET("/info/:user_id", userHandler.GetUserInfo)    // /api/v1/users/info/{user_id} (DEPRECATED)
+			user.POST("/list", userHandler.ListUsers)              // /api/v1/users/list (DEPRECATED)
+		}
+
+		// RESTful User endpoints (New)
+		userREST := api.Group("/users")
+		{
+			userREST.POST("", userHandler.CreateUserREST)                              // /api/v1/users
+			userREST.GET("", userHandler.ListUsersREST)                                // /api/v1/users
+			userREST.GET("/:user_id", userHandler.GetUserREST)                         // /api/v1/users/{user_id}
+			userREST.PUT("/:user_id", userHandler.UpdateUserREST)                      // /api/v1/users/{user_id}
+			userREST.DELETE("/:user_id", userHandler.DeleteUserREST)                   // /api/v1/users/{user_id}
+			userREST.PUT("/:user_id/roles/:role_id", userHandler.AddRoleToUser)        // /api/v1/users/{user_id}/roles/{role_id}
+			userREST.DELETE("/:user_id/roles/:role_id", userHandler.RemoveRoleFromUser) // /api/v1/users/{user_id}/roles/{role_id}
 		}
 
 		// Role endpoints

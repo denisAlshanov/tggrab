@@ -114,6 +114,13 @@ definitions:
       status:
         type: string
     type: object
+  models.AddRoleToUserResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.AutocompleteData:
     properties:
       query:
@@ -450,24 +457,13 @@ definitions:
     properties:
       email:
         type: string
-      metadata:
-        additionalProperties: true
-        type: object
       name:
         maxLength: 100
         minLength: 1
         type: string
-      oidc_provider:
-        type: string
-      oidc_subject:
-        type: string
       password:
         minLength: 8
         type: string
-      role_ids:
-        items:
-          type: string
-        type: array
       surname:
         maxLength: 100
         minLength: 1
@@ -475,12 +471,13 @@ definitions:
     required:
     - email
     - name
+    - password
     - surname
     type: object
   models.CreateUserResponse:
     properties:
       data:
-        $ref: '#/definitions/models.UserWithRoles'
+        $ref: '#/definitions/models.User'
       success:
         type: boolean
     type: object
@@ -608,10 +605,8 @@ definitions:
     type: object
   models.DeleteUserRequest:
     properties:
-      user_id:
-        type: string
-    required:
-    - user_id
+      force:
+        type: boolean
     type: object
   models.DeleteUserResponse:
     properties:
@@ -900,7 +895,7 @@ definitions:
   models.GetUserInfoResponse:
     properties:
       data:
-        $ref: '#/definitions/models.UserWithRoles'
+        $ref: '#/definitions/models.User'
       success:
         type: boolean
     type: object
@@ -1207,8 +1202,6 @@ definitions:
     properties:
       pagination:
         $ref: '#/definitions/models.PaginationResponse'
-      total:
-        type: integer
       users:
         items:
           $ref: '#/definitions/models.UserListItem'
@@ -1456,6 +1449,13 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/models.TokenPair'
+      success:
+        type: boolean
+    type: object
+  models.RemoveRoleFromUserResponse:
+    properties:
+      message:
+        type: string
       success:
         type: boolean
     type: object
@@ -1992,37 +1992,47 @@ definitions:
     properties:
       email:
         type: string
-      metadata:
-        additionalProperties: true
-        type: object
       name:
         maxLength: 100
         minLength: 1
         type: string
-      password:
-        minLength: 8
-        type: string
-      role_ids:
-        items:
-          type: string
-        type: array
-      status:
-        $ref: '#/definitions/models.UserStatus'
       surname:
         maxLength: 100
         minLength: 1
         type: string
-      user_id:
-        type: string
-    required:
-    - user_id
     type: object
   models.UpdateUserResponse:
     properties:
       data:
-        $ref: '#/definitions/models.UserWithRoles'
+        $ref: '#/definitions/models.User'
       success:
         type: boolean
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      last_login_at:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      oidc_provider:
+        type: string
+      oidc_subject:
+        type: string
+      status:
+        $ref: '#/definitions/models.UserStatus'
+      surname:
+        type: string
+      updated_at:
+        type: string
     type: object
   models.UserDeleteData:
     properties:
@@ -2058,10 +2068,6 @@ definitions:
         type: string
       name:
         type: string
-      roles:
-        items:
-          $ref: '#/definitions/models.RoleInfo'
-        type: array
       status:
         $ref: '#/definitions/models.UserStatus'
       surname:
@@ -3793,6 +3799,299 @@ paths:
       summary: List shows
       tags:
       - shows
+  /api/v1/users:
+    get:
+      description: Get paginated list of users with query parameters
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Search by name or email
+        in: query
+        name: search
+        type: string
+      - description: Sort field
+        in: query
+        name: sort
+        type: string
+      - description: Sort order (asc/desc)
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ListUsersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List users (RESTful)
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with simplified request format
+      parameters:
+      - description: User creation data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CreateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create new user (RESTful)
+      tags:
+      - users
+  /api/v1/users/{user_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft or hard delete a user based on force parameter
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: User deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete user (RESTful)
+      tags:
+      - users
+    get:
+      description: Get detailed information about a specific user without roles
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GetUserInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user information (RESTful)
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update existing user details with simplified request format
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: User update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UpdateUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user information (RESTful)
+      tags:
+      - users
+  /api/v1/users/{user_id}/roles/{role_id}:
+    delete:
+      description: Remove a specific role from a user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RemoveRoleFromUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove role from user
+      tags:
+      - users
+    put:
+      description: Add a specific role to a user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AddRoleToUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add role to user
+      tags:
+      - users
   /api/v1/users/add:
     post:
       consumes:
