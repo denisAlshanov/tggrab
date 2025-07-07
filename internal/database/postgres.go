@@ -144,16 +144,8 @@ func (p *PostgresDB) createTables(ctx context.Context) error {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Create update trigger for updated_at
+	// Create update trigger for posts table
 	createTrigger := `
-		CREATE OR REPLACE FUNCTION update_updated_at_column()
-		RETURNS TRIGGER AS $$
-		BEGIN
-			NEW.updated_at = CURRENT_TIMESTAMP;
-			RETURN NEW;
-		END;
-		$$ language 'plpgsql';
-
 		DROP TRIGGER IF EXISTS update_posts_updated_at ON posts;
 		CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
 			FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -182,6 +174,20 @@ func (p *PostgresDB) runMigrations(ctx context.Context) error {
 
 	// Define all migrations
 	migrations := []Migration{
+		{
+			Version:     0,
+			Description: "Create update_updated_at_column function",
+			SQL: `
+				-- Create or replace the function to update updated_at column
+				CREATE OR REPLACE FUNCTION update_updated_at_column()
+				RETURNS TRIGGER AS $$
+				BEGIN
+					NEW.updated_at = CURRENT_TIMESTAMP;
+					RETURN NEW;
+				END;
+				$$ language 'plpgsql';
+			`,
+		},
 		{
 			Version:     1,
 			Description: "Add original_channel_name column to posts table",
