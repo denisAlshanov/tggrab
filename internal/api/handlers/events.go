@@ -33,7 +33,7 @@ func NewEventHandler(db *database.PostgresDB) *EventHandler {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/update [put]
 func (h *EventHandler) UpdateEvent(c *gin.Context) {
 	var req models.UpdateEventRequest
@@ -186,7 +186,7 @@ func (h *EventHandler) UpdateEvent(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/delete [delete]
 func (h *EventHandler) DeleteEvent(c *gin.Context) {
 	var req models.DeleteEventRequest
@@ -252,7 +252,7 @@ func (h *EventHandler) DeleteEvent(c *gin.Context) {
 // @Success 200 {object} models.EventListResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/list [post]
 func (h *EventHandler) ListEvents(c *gin.Context) {
 	var req models.EventListRequest
@@ -320,7 +320,7 @@ func (h *EventHandler) ListEvents(c *gin.Context) {
 // @Success 200 {object} models.WeekListResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/weekList [post]
 func (h *EventHandler) WeekListEvents(c *gin.Context) {
 	var req models.WeekListRequest
@@ -415,7 +415,7 @@ func (h *EventHandler) WeekListEvents(c *gin.Context) {
 // @Success 200 {object} models.MonthListResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/monthList [post]
 func (h *EventHandler) MonthListEvents(c *gin.Context) {
 	var req models.MonthListRequest
@@ -498,7 +498,7 @@ func (h *EventHandler) MonthListEvents(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/info/{event_id} [get]
 func (h *EventHandler) GetEventInfo(c *gin.Context) {
 	eventIDStr := c.Param("event_id")

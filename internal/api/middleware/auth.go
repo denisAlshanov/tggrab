@@ -272,3 +272,104 @@ func HybridAuthMiddleware(cfg *config.APIConfig, jwtService *auth.JWTService, se
 		c.Abort()
 	}
 }
+
+// JWTOnlyMiddleware provides JWT-only authentication and rejects API key attempts
+func JWTOnlyMiddleware(jwtService *auth.JWTService, sessionService *auth.SessionService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check if API key is being attempted
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey != "" {
+			c.JSON(401, gin.H{
+				"error":      "API_KEY_NOT_ALLOWED",
+				"message":    "API key authentication not allowed",
+				"request_id": c.GetString("request_id"),
+				"timestamp":  time.Now().Format(time.RFC3339),
+			})
+			c.Abort()
+			return
+		}
+
+		// Extract JWT token
+		token := extractToken(c)
+		if token == "" {
+			c.JSON(401, gin.H{
+				"error":      "AUTHENTICATION_REQUIRED",
+				"message":    "Authentication required",
+				"request_id": c.GetString("request_id"),
+				"timestamp":  time.Now().Format(time.RFC3339),
+			})
+			c.Abort()
+			return
+		}
+
+		// Validate access token
+		claims, err := jwtService.ValidateAccessToken(token)
+		if err != nil {
+			errorMessage := "Invalid authentication token"
+			if strings.Contains(err.Error(), "expired") {
+				errorMessage = "Token expired"
+			}
+			c.JSON(401, gin.H{
+				"error":      "INVALID_TOKEN",
+				"message":    errorMessage,
+				"request_id": c.GetString("request_id"),
+				"timestamp":  time.Now().Format(time.RFC3339),
+			})
+			c.Abort()
+			return
+		}
+
+		// Check if token is blacklisted
+		blacklisted, err := sessionService.IsTokenBlacklisted(c, claims.ID)
+		if err != nil {
+			utils.LogError(c, "Failed to check token blacklist", err)
+			c.JSON(500, gin.H{
+				"error":      "TOKEN_CHECK_ERROR",
+				"message":    "Failed to verify token status",
+				"request_id": c.GetString("request_id"),
+				"timestamp":  time.Now().Format(time.RFC3339),
+			})
+			c.Abort()
+			return
+		}
+
+		if blacklisted {
+			c.JSON(401, gin.H{
+				"error":      "TOKEN_REVOKED",
+				"message":    "Token has been revoked",
+				"request_id": c.GetString("request_id"),
+				"timestamp":  time.Now().Format(time.RFC3339),
+			})
+			c.Abort()
+			return
+		}
+
+		// Validate session is still active
+		if claims.SessionID != "" {
+			sessionID, err := uuid.Parse(claims.SessionID)
+			if err == nil {
+				session, err := sessionService.ValidateSession(c, sessionID)
+				if err == nil && session != nil {
+					// Update session activity only if session is valid
+					if err := sessionService.UpdateSessionActivity(c, session.ID); err != nil {
+						utils.LogError(c, "Failed to update session activity", err)
+					}
+				} else {
+					// Log the error but don't fail the request - the JWT is still valid
+					utils.LogError(c, "Session validation failed", err)
+				}
+			}
+		}
+
+		// Store user information in context
+		c.Set("user_id", claims.UserID)
+		c.Set("user_email", claims.Email)
+		c.Set("user_roles", claims.Roles)
+		c.Set("user_permissions", claims.Permissions)
+		c.Set("session_id", claims.SessionID)
+		c.Set("token_jti", claims.ID)
+		c.Set("auth_method", "jwt")
+
+		c.Next()
+	}
+}

@@ -34,7 +34,7 @@ func NewGuestHandler(db *database.PostgresDB) *GuestHandler {
 // @Success 200 {object} models.CreateGuestResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/guest/new [post]
 func (h *GuestHandler) CreateGuest(c *gin.Context) {
 	var req models.CreateGuestRequest
@@ -124,7 +124,7 @@ func (h *GuestHandler) CreateGuest(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/guest/update [put]
 func (h *GuestHandler) UpdateGuest(c *gin.Context) {
 	var req models.UpdateGuestRequest
@@ -279,7 +279,7 @@ func (h *GuestHandler) UpdateGuest(c *gin.Context) {
 // @Success 200 {object} models.ListGuestsResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/guest/list [post]
 func (h *GuestHandler) ListGuests(c *gin.Context) {
 	var req models.ListGuestsRequest
@@ -353,7 +353,7 @@ func (h *GuestHandler) ListGuests(c *gin.Context) {
 // @Success 200 {object} models.AutocompleteResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/guest/autocomplete [get]
 func (h *GuestHandler) AutocompleteGuests(c *gin.Context) {
 	query := strings.TrimSpace(c.Query("q"))
@@ -416,7 +416,7 @@ func (h *GuestHandler) AutocompleteGuests(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/guest/info/{guest_id} [get]
 func (h *GuestHandler) GetGuestInfo(c *gin.Context) {
 	guestIDStr := c.Param("guest_id")
@@ -488,7 +488,7 @@ func (h *GuestHandler) GetGuestInfo(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/guest/delete [delete]
 func (h *GuestHandler) DeleteGuest(c *gin.Context) {
 	var req models.DeleteGuestRequest

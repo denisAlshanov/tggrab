@@ -34,7 +34,7 @@ func NewRoleHandler(db *database.PostgresDB) *RoleHandler {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 409 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/roles/add [post]
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	var req models.CreateRoleRequest
@@ -129,7 +129,7 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/roles/update [put]
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	var req models.UpdateRoleRequest
@@ -275,7 +275,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Failure 409 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/roles/delete [delete]
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	var req models.DeleteRoleRequest
@@ -362,7 +362,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/roles/info/{role_id} [get]
 func (h *RoleHandler) GetRoleInfo(c *gin.Context) {
 	roleIDStr := c.Param("role_id")
@@ -403,7 +403,7 @@ func (h *RoleHandler) GetRoleInfo(c *gin.Context) {
 // @Success 200 {object} models.ListRolesResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/roles/list [post]
 func (h *RoleHandler) ListRoles(c *gin.Context) {
 	var req models.ListRolesRequest

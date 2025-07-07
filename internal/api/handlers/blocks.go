@@ -34,7 +34,7 @@ func NewBlockHandler(db *database.PostgresDB) *BlockHandler {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/block/add [post]
 func (h *BlockHandler) AddBlock(c *gin.Context) {
 	var req models.AddBlockRequest
@@ -166,7 +166,7 @@ func (h *BlockHandler) AddBlock(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/block/update [put]
 func (h *BlockHandler) UpdateBlock(c *gin.Context) {
 	var req models.UpdateBlockRequest
@@ -332,7 +332,7 @@ func (h *BlockHandler) UpdateBlock(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/block/info/{block_id} [get]
 func (h *BlockHandler) GetBlockInfo(c *gin.Context) {
 	blockIDStr := c.Param("block_id")
@@ -406,7 +406,7 @@ func (h *BlockHandler) GetBlockInfo(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/block/reorder [put]
 func (h *BlockHandler) ReorderBlocks(c *gin.Context) {
 	var req models.ReorderBlocksRequest
@@ -519,7 +519,7 @@ func (h *BlockHandler) ReorderBlocks(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/block/delete [delete]
 func (h *BlockHandler) DeleteBlock(c *gin.Context) {
 	var req models.DeleteBlockRequest
@@ -605,7 +605,7 @@ func (h *BlockHandler) DeleteBlock(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/event/{event_id}/blocks [get]
 func (h *BlockHandler) GetEventBlocks(c *gin.Context) {
 	eventIDStr := c.Param("event_id")

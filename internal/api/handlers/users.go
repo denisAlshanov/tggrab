@@ -34,7 +34,7 @@ func NewUserHandler(db *database.PostgresDB) *UserHandler {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 409 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/users/add [post]
 func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req models.CreateUserRequest
@@ -179,7 +179,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/users/update [put]
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	var req models.UpdateUserRequest
@@ -331,7 +331,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/users/delete [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	var req models.DeleteUserRequest
@@ -396,7 +396,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/users/info/{user_id} [get]
 func (h *UserHandler) GetUserInfo(c *gin.Context) {
 	userIDStr := c.Param("user_id")
@@ -437,7 +437,7 @@ func (h *UserHandler) GetUserInfo(c *gin.Context) {
 // @Success 200 {object} models.ListUsersResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /api/v1/users/list [post]
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	var req models.ListUsersRequest

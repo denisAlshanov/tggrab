@@ -38,7 +38,7 @@ func NewPostHandler(db *database.PostgresDB, downloader *downloader.Downloader) 
 // @Failure 409 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/media/grab [post]
-// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *PostHandler) AddPost(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -90,7 +90,7 @@ func (h *PostHandler) AddPost(c *gin.Context) {
 // @Success 200 {object} models.PostListResponse
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/media/list [get]
-// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *PostHandler) GetList(c *gin.Context) {
 	ctx := c.Request.Context()
 

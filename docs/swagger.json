@@ -470,7 +470,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new block with guests and media attachments",
@@ -530,7 +530,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Remove a block and optionally reorder remaining blocks",
@@ -590,7 +590,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get detailed information about a specific block including guests and media",
@@ -645,7 +645,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Change the order of blocks within a specific event",
@@ -705,7 +705,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update existing block with new information",
@@ -765,7 +765,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Cancel a specific event while preserving show template",
@@ -825,7 +825,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get detailed information about a specific event including show details",
@@ -880,7 +880,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get paginated list of events with filtering and sorting options",
@@ -933,7 +933,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get events organized by weeks and days for a specific month",
@@ -986,7 +986,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update specific event with custom fields while preserving show inheritance",
@@ -1046,7 +1046,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get events organized by days for a specific week",
@@ -1099,7 +1099,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get ordered list of blocks for a specific event",
@@ -1154,7 +1154,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get guest suggestions for autocomplete functionality",
@@ -1208,7 +1208,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a guest from the system",
@@ -1268,7 +1268,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get detailed information about a specific guest",
@@ -1323,7 +1323,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get paginated list of guests with filtering and sorting options",
@@ -1376,7 +1376,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new guest with contact information and notes",
@@ -1429,7 +1429,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update existing guest with new information",
@@ -1489,7 +1489,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update media file metadata including filename and custom metadata",
@@ -1547,7 +1547,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Download specific media file from a post as binary stream. Supports range requests for video files to enable streaming and seeking.",
@@ -1624,7 +1624,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete media file from database and S3 storage",
@@ -1684,7 +1684,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get direct S3 link for specific media with configurable expiration",
@@ -1744,7 +1744,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Add a new Telegram post link or YouTube video URL to download media. Automatically detects the platform and processes accordingly.",
@@ -1810,7 +1810,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get list of all media files from a specific Telegram post or YouTube video",
@@ -1870,7 +1870,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieve list of all previously processed Telegram and YouTube links",
@@ -1931,7 +1931,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new role with specified permissions",
@@ -1991,7 +1991,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a role if it has no associated users",
@@ -2058,7 +2058,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get detailed information about a specific role including user count",
@@ -2113,7 +2113,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get paginated list of roles with filters",
@@ -2166,7 +2166,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update existing role details and permissions",
@@ -2226,7 +2226,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new show with YouTube and Zoom integration for recurring streams",
@@ -2279,7 +2279,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Soft delete a show by setting its status to cancelled",
@@ -2339,7 +2339,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get detailed information about a specific show including upcoming events",
@@ -2394,7 +2394,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a paginated list of shows with filtering and sorting options",
@@ -2446,7 +2446,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new user with password or OIDC authentication",
@@ -2506,7 +2506,7 @@
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Soft delete a user by setting status to inactive",
@@ -2566,7 +2566,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get detailed information about a specific user including roles",
@@ -2621,7 +2621,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get paginated list of users with filters",
@@ -2674,7 +2674,7 @@
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update existing user details and roles",

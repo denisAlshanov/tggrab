@@ -33,7 +33,7 @@ func NewShowHandler(db *database.PostgresDB) *ShowHandler {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/show/create [post]
-// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *ShowHandler) CreateShow(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -156,7 +156,7 @@ func (h *ShowHandler) CreateShow(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/show/delete [delete]
-// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *ShowHandler) DeleteShow(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -244,7 +244,7 @@ func (h *ShowHandler) DeleteShow(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/show/list [post]
-// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *ShowHandler) ListShows(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -334,7 +334,7 @@ func (h *ShowHandler) ListShows(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/show/info/{show_id} [get]
-// @Security ApiKeyAuth
+// @Security BearerAuth
 func (h *ShowHandler) GetShowInfo(c *gin.Context) {
 	ctx := c.Request.Context()
 

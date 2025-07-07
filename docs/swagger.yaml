@@ -2535,7 +2535,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Add new block to event
       tags:
       - blocks
@@ -2574,7 +2574,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete block from event
       tags:
       - blocks
@@ -2611,7 +2611,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get block details
       tags:
       - blocks
@@ -2650,7 +2650,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Reorder blocks within an event
       tags:
       - blocks
@@ -2689,7 +2689,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update block information
       tags:
       - blocks
@@ -2725,7 +2725,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List all blocks for an event
       tags:
       - blocks
@@ -2764,7 +2764,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Cancel/delete event
       tags:
       - events
@@ -2801,7 +2801,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get event details
       tags:
       - events
@@ -2835,7 +2835,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List events with filtering
       tags:
       - events
@@ -2869,7 +2869,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get month view of events
       tags:
       - events
@@ -2909,7 +2909,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update event details
       tags:
       - events
@@ -2943,7 +2943,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get week view of events
       tags:
       - events
@@ -2978,7 +2978,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Guest autocomplete search
       tags:
       - guests
@@ -3017,7 +3017,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete guest
       tags:
       - guests
@@ -3053,7 +3053,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get guest details
       tags:
       - guests
@@ -3087,7 +3087,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List guests with filtering
       tags:
       - guests
@@ -3121,7 +3121,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create new guest
       tags:
       - guests
@@ -3160,7 +3160,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update guest information
       tags:
       - guests
@@ -3199,7 +3199,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete media file
       tags:
       - media
@@ -3251,7 +3251,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Download specific media file
       tags:
       - media
@@ -3289,7 +3289,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update media metadata
       tags:
       - media
@@ -3328,7 +3328,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get S3 pre-signed URL for media
       tags:
       - media
@@ -3372,7 +3372,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Add a new Telegram or YouTube link for processing
       tags:
       - media
@@ -3412,7 +3412,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get media files from a specific post
       tags:
       - media
@@ -3453,7 +3453,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get list of processed posts
       tags:
       - media
@@ -3492,7 +3492,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create new role
       tags:
       - roles
@@ -3536,7 +3536,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete role
       tags:
       - roles
@@ -3572,7 +3572,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get role information
       tags:
       - roles
@@ -3606,7 +3606,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List roles
       tags:
       - roles
@@ -3645,7 +3645,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update role information
       tags:
       - roles
@@ -3680,7 +3680,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create a new show
       tags:
       - shows
@@ -3719,7 +3719,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete a show
       tags:
       - shows
@@ -3756,7 +3756,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get show information
       tags:
       - shows
@@ -3789,7 +3789,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List shows
       tags:
       - shows
@@ -3828,7 +3828,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Create new user
       tags:
       - users
@@ -3867,7 +3867,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Delete user
       tags:
       - users
@@ -3903,7 +3903,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Get user information
       tags:
       - users
@@ -3937,7 +3937,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: List users
       tags:
       - users
@@ -3976,7 +3976,7 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - ApiKeyAuth: []
+      - BearerAuth: []
       summary: Update user information
       tags:
       - users
