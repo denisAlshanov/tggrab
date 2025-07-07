@@ -40,6 +40,15 @@ definitions:
       status:
         type: string
     type: object
+  models.APIError:
+    properties:
+      details:
+        type: string
+      error:
+        type: string
+      message:
+        type: string
+    type: object
   models.AddBlockRequest:
     properties:
       block_type:
@@ -613,6 +622,17 @@ definitions:
       success:
         type: boolean
     type: object
+  models.DeviceInfo:
+    properties:
+      device_name:
+        type: string
+      device_type:
+        type: string
+      ip_address:
+        type: string
+      user_agent:
+        type: string
+    type: object
   models.Event:
     properties:
       additional_key:
@@ -884,6 +904,68 @@ definitions:
       success:
         type: boolean
     type: object
+  models.GoogleCallbackRequest:
+    properties:
+      code:
+        type: string
+      device_info:
+        $ref: '#/definitions/models.DeviceInfo'
+      state:
+        type: string
+    required:
+    - code
+    - state
+    type: object
+  models.GoogleCallbackResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.GoogleCallbackResponseData'
+      success:
+        type: boolean
+    type: object
+  models.GoogleCallbackResponseData:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      is_new_user:
+        type: boolean
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/models.UserWithRoles'
+    type: object
+  models.GoogleLinkRequest:
+    properties:
+      id_token:
+        type: string
+    required:
+    - id_token
+    type: object
+  models.GoogleLinkResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  models.GoogleLoginResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.GoogleLoginResponseData'
+      success:
+        type: boolean
+    type: object
+  models.GoogleLoginResponseData:
+    properties:
+      auth_url:
+        type: string
+      state:
+        type: string
+    type: object
   models.Guest:
     properties:
       avatar:
@@ -1148,6 +1230,52 @@ definitions:
       success:
         type: boolean
     type: object
+  models.LoginRequest:
+    properties:
+      device_info:
+        $ref: '#/definitions/models.DeviceInfo'
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.LoginResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.LoginResponseData'
+      success:
+        type: boolean
+    type: object
+  models.LoginResponseData:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/models.UserWithRoles'
+    type: object
+  models.LogoutRequest:
+    properties:
+      logout_all_devices:
+        type: boolean
+      refresh_token:
+        type: string
+    type: object
+  models.LogoutResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.MediaListItem:
     properties:
       file_name:
@@ -1317,6 +1445,20 @@ definitions:
     - PostStatusProcessing
     - PostStatusCompleted
     - PostStatusFailed
+  models.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  models.RefreshTokenResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.TokenPair'
+      success:
+        type: boolean
+    type: object
   models.ReorderBlocksData:
     properties:
       blocks:
@@ -1366,6 +1508,13 @@ definitions:
     - RepeatBiweekly
     - RepeatMonthly
     - RepeatCustom
+  models.RevokeSessionResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   models.Role:
     properties:
       created_at:
@@ -1505,6 +1654,39 @@ definitions:
           type: integer
         type: array
     type: object
+  models.SessionInfo:
+    properties:
+      created_at:
+        type: string
+      device_name:
+        type: string
+      device_type:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      is_current:
+        type: boolean
+      last_activity:
+        type: string
+      location:
+        type: string
+    type: object
+  models.SessionListData:
+    properties:
+      sessions:
+        items:
+          $ref: '#/definitions/models.SessionInfo'
+        type: array
+    type: object
+  models.SessionListResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.SessionListData'
+      success:
+        type: boolean
+    type: object
   models.Show:
     properties:
       additional_key:
@@ -1612,6 +1794,32 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/models.ShowStatus'
+    type: object
+  models.TokenPair:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  models.TokenVerificationData:
+    properties:
+      email:
+        type: string
+      expires_at:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      user_id:
+        type: string
+      valid:
+        type: boolean
     type: object
   models.UpdateBlockRequest:
     properties:
@@ -1920,6 +2128,13 @@ definitions:
       updated_at:
         type: string
     type: object
+  models.VerifyTokenResponse:
+    properties:
+      data:
+        $ref: '#/definitions/models.TokenVerificationData'
+      success:
+        type: boolean
+    type: object
   models.WeekDay:
     properties:
       date:
@@ -1998,6 +2213,293 @@ info:
   title: St. Planer - YouTube Stream Planner API
   version: "1.0"
 paths:
+  /api/v1/auth/google/callback:
+    post:
+      consumes:
+      - application/json
+      description: Process Google OAuth callback and create user session
+      parameters:
+      - description: Google callback data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.GoogleCallbackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GoogleCallbackResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Handle Google OAuth callback
+      tags:
+      - Authentication
+  /api/v1/auth/google/link:
+    post:
+      consumes:
+      - application/json
+      description: Link a Google account to the currently authenticated user
+      parameters:
+      - description: Google ID token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.GoogleLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GoogleLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      security:
+      - BearerAuth: []
+      summary: Link Google account to existing user
+      tags:
+      - Authentication
+  /api/v1/auth/google/login:
+    get:
+      description: Generate Google OAuth authorization URL
+      parameters:
+      - description: Redirect URI after Google auth
+        in: query
+        name: redirect_uri
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.GoogleLoginResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Initiate Google OAuth login
+      tags:
+      - Authentication
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: User login with password
+      tags:
+      - Authentication
+  /api/v1/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user and invalidate tokens
+      parameters:
+      - description: Logout request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LogoutResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - Authentication
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange refresh token for new access token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RefreshTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Refresh access token
+      tags:
+      - Authentication
+  /api/v1/auth/sessions:
+    get:
+      description: Retrieve all active sessions for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SessionListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      security:
+      - BearerAuth: []
+      summary: Get user's active sessions
+      tags:
+      - Authentication
+  /api/v1/auth/sessions/{session_id}:
+    delete:
+      description: Revoke a specific session by session ID
+      parameters:
+      - description: Session ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.RevokeSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      security:
+      - BearerAuth: []
+      summary: Revoke a specific session
+      tags:
+      - Authentication
+  /api/v1/auth/verify:
+    get:
+      description: Verify if the provided access token is valid
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.VerifyTokenResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      security:
+      - BearerAuth: []
+      summary: Verify access token
+      tags:
+      - Authentication
   /api/v1/block/add:
     post:
       consumes:
@@ -3533,5 +4035,10 @@ securityDefinitions:
     description: API key authentication
     in: header
     name: X-API-Key
+    type: apiKey
+  BearerAuth:
+    description: 'JWT Bearer token authentication. Format: "Bearer {token}"'
+    in: header
+    name: Authorization
     type: apiKey
 swagger: "2.0"
