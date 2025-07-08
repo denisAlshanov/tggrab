@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,534 +26,516 @@ func NewEventHandler(db *database.PostgresDB) *EventHandler {
 	return &EventHandler{db: db}
 }
 
-// UpdateEvent handles PUT /api/v1/event/update
-// @Summary Update event details
-// @Description Update specific event with custom fields while preserving show inheritance
+
+
+
+
+
+
+// RESTful Event Management Endpoints
+
+// UpdateEventREST handles PUT /api/v1/events/{event_id}
+// @Summary Update event (RESTful)
+// @Description Update an event with simplified request format and staff assignments
 // @Tags events
 // @Accept json
 // @Produce json
-// @Param request body models.UpdateEventRequest true "Event update data"
-// @Success 200 {object} models.UpdateEventResponse
+// @Param event_id path string true "Event ID"
+// @Param request body models.UpdateEventRequestREST true "Event update data"
+// @Success 200 {object} models.EventResponseREST
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Security BearerAuth
-// @Router /api/v1/event/update [put]
-func (h *EventHandler) UpdateEvent(c *gin.Context) {
-	var req models.UpdateEventRequest
+// @Router /api/v1/events/{event_id} [put]
+func (h *EventHandler) UpdateEventREST(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Parse event ID from path
+	eventIDStr := c.Param("event_id")
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		h.errorResponse(c, utils.NewValidationError("Invalid event ID format", map[string]interface{}{
+			"field": "event_id",
+			"value": eventIDStr,
+		}))
+		return
+	}
+
+	var req models.UpdateEventRequestREST
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
+		h.errorResponse(c, utils.NewValidationError("Invalid request format", map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
 
-	// Parse event ID
-	eventID, err := uuid.Parse(req.EventID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID format"})
-		return
-	}
-
-	// Get existing event
-	event, err := h.db.GetEventByID(c.Request.Context(), eventID)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get event", err, utils.Fields{
-			"event_id": eventID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve event"})
-		return
-	}
-
-	if event == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
-		return
-	}
-
-	// Get the associated show for validation
-	show, err := h.db.GetShowByID(c.Request.Context(), event.ShowID)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get show", err, utils.Fields{
-			"show_id": event.ShowID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve show"})
-		return
-	}
-
-	if show == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Associated show not found"})
-		return
-	}
-
-	// Update event fields
-	updated := false
-
-	if req.EventTitle != nil {
-		event.EventTitle = req.EventTitle
-		updated = true
-	}
-
-	if req.EventDescription != nil {
-		event.EventDescription = req.EventDescription
-		updated = true
-	}
-
-	if req.StartDateTime != nil {
-		event.StartDateTime = *req.StartDateTime
-		// Recalculate end time
-		duration := show.LengthMinutes
-		if event.LengthMinutes != nil {
-			duration = *event.LengthMinutes
-		}
-		event.EndDateTime = event.StartDateTime.Add(time.Duration(duration) * time.Minute)
-		updated = true
-	}
-
-	if req.LengthMinutes != nil {
-		event.LengthMinutes = req.LengthMinutes
-		// Recalculate end time
-		event.EndDateTime = event.StartDateTime.Add(time.Duration(*req.LengthMinutes) * time.Minute)
-		updated = true
-	}
-
-	if req.YouTubeKey != nil {
-		event.YouTubeKey = req.YouTubeKey
-		updated = true
-	}
-
-	if req.AdditionalKey != nil {
-		event.AdditionalKey = req.AdditionalKey
-		updated = true
-	}
-
-	if req.ZoomMeetingURL != nil {
-		event.ZoomMeetingURL = req.ZoomMeetingURL
-		updated = true
-	}
-
-	if req.ZoomMeetingID != nil {
-		event.ZoomMeetingID = req.ZoomMeetingID
-		updated = true
-	}
-
-	if req.ZoomPasscode != nil {
-		event.ZoomPasscode = req.ZoomPasscode
-		updated = true
-	}
-
-	if req.CustomFields != nil {
-		if event.CustomFields == nil {
-			event.CustomFields = make(map[string]interface{})
-		}
-		for key, value := range req.CustomFields {
-			event.CustomFields[key] = value
-		}
-		updated = true
-	}
-
-	if updated {
-		event.IsCustomized = true
-	}
-
-	// Validate updated event
-	if err := utils.ValidateEventTiming(event, show); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Event validation failed", "details": err.Error()})
-		return
-	}
-
-	// Update in database
-	if err := h.db.UpdateEvent(c.Request.Context(), event); err != nil {
-		utils.LogError(c.Request.Context(), "Failed to update event", err, utils.Fields{
-			"event_id": eventID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event"})
-		return
-	}
-
-	utils.LogInfo(c.Request.Context(), "Event updated successfully", utils.Fields{
-		"event_id":      eventID,
-		"is_customized": event.IsCustomized,
-	})
-
-	c.JSON(http.StatusOK, models.UpdateEventResponse{
-		Success: true,
-		Data:    event,
-	})
-}
-
-// DeleteEvent handles DELETE /api/v1/event/delete
-// @Summary Cancel/delete event
-// @Description Cancel a specific event while preserving show template
-// @Tags events
-// @Accept json
-// @Produce json
-// @Param request body models.DeleteEventRequest true "Event deletion data"
-// @Success 200 {object} models.DeleteEventResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /api/v1/event/delete [delete]
-func (h *EventHandler) DeleteEvent(c *gin.Context) {
-	var req models.DeleteEventRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
-		return
-	}
-
-	// Parse event ID
-	eventID, err := uuid.Parse(req.EventID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID format"})
-		return
-	}
-
-	// Get existing event to verify it exists
-	event, err := h.db.GetEventByID(c.Request.Context(), eventID)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get event", err, utils.Fields{
-			"event_id": eventID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve event"})
-		return
-	}
-
-	if event == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
-		return
-	}
-
-	// Delete (cancel) the event
-	if err := h.db.DeleteEvent(c.Request.Context(), eventID); err != nil {
-		utils.LogError(c.Request.Context(), "Failed to delete event", err, utils.Fields{
-			"event_id": eventID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel event"})
-		return
-	}
-
-	utils.LogInfo(c.Request.Context(), "Event cancelled successfully", utils.Fields{
-		"event_id":             eventID,
-		"cancellation_reason": req.CancellationReason,
-	})
-
-	c.JSON(http.StatusOK, models.DeleteEventResponse{
-		Success: true,
-		Message: "Event cancelled successfully",
-		Data: &models.EventDeleteData{
-			EventID:     req.EventID,
-			Status:      models.EventStatusCancelled,
-			CancelledAt: time.Now(),
-		},
-	})
-}
-
-// ListEvents handles POST /api/v1/event/list
-// @Summary List events with filtering
-// @Description Get paginated list of events with filtering and sorting options
-// @Tags events
-// @Accept json
-// @Produce json
-// @Param request body models.EventListRequest true "Event list filters"
-// @Success 200 {object} models.EventListResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /api/v1/event/list [post]
-func (h *EventHandler) ListEvents(c *gin.Context) {
-	var req models.EventListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
-		return
-	}
-
-	// Get user ID from context (set by auth middleware)
+	// Get user ID from context
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		h.errorResponse(c, utils.NewAuthError("User not authenticated"))
 		return
 	}
 
 	userUUID, ok := userID.(uuid.UUID)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		h.errorResponse(c, utils.NewAuthError("Invalid user ID"))
 		return
 	}
 
-	// Set defaults
-	if req.Pagination.Limit <= 0 {
-		req.Pagination.Limit = 20
-	}
-	if req.Pagination.Page <= 0 {
-		req.Pagination.Page = 1
+	// Check if event exists and belongs to user
+	existingEvent, err := h.db.GetEventByID(ctx, eventID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to get event", err, utils.Fields{
+			"event_id": eventID,
+			"user_id":  userUUID,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to retrieve event"))
+		return
 	}
 
-	// Get events from database
-	events, total, err := h.db.ListEvents(c.Request.Context(), userUUID, req.Filters, req.Pagination, req.Sort)
+	if existingEvent == nil {
+		h.errorResponse(c, utils.NewNotFoundError("Event not found"))
+		return
+	}
+
+	if existingEvent.UserID != userUUID {
+		h.errorResponse(c, utils.NewForbiddenError("Access denied"))
+		return
+	}
+
+	// Validate user IDs if provided
+	if req.Host != nil {
+		_, err := h.validateUserIDs(ctx, req.Host)
+		if err != nil {
+			h.errorResponse(c, utils.NewValidationError("Invalid host user IDs", map[string]interface{}{
+				"field": "host",
+				"error": err.Error(),
+			}))
+			return
+		}
+	}
+
+	if req.Director != nil {
+		_, err := h.validateUserIDs(ctx, req.Director)
+		if err != nil {
+			h.errorResponse(c, utils.NewValidationError("Invalid director user IDs", map[string]interface{}{
+				"field": "director",
+				"error": err.Error(),
+			}))
+			return
+		}
+	}
+
+	if req.Producer != nil {
+		_, err := h.validateUserIDs(ctx, req.Producer)
+		if err != nil {
+			h.errorResponse(c, utils.NewValidationError("Invalid producer user IDs", map[string]interface{}{
+				"field": "producer",
+				"error": err.Error(),
+			}))
+			return
+		}
+	}
+
+	// Validate Telegram channel if provided
+	if req.Telegram != nil && *req.Telegram != "" {
+		if !h.isValidTelegramChannel(*req.Telegram) {
+			h.errorResponse(c, utils.NewValidationError("Invalid Telegram channel format", map[string]interface{}{
+				"field": "telegram",
+				"value": *req.Telegram,
+			}))
+			return
+		}
+	}
+
+	// Update event in database
+	_, err = h.db.UpdateEventREST(ctx, eventID, &req)
 	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to list events", err, utils.Fields{
-			"user_id": userUUID,
-			"filters": req.Filters,
+		utils.LogError(ctx, "Failed to update event", err, utils.Fields{
+			"event_id": eventID,
+			"user_id":  userUUID,
 		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve events"})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to update event"))
+		return
+	}
+
+	// Get updated event details
+	eventDetail, err := h.db.GetEventREST(ctx, eventID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to get updated event", err, utils.Fields{
+			"event_id": eventID,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to retrieve updated event"))
+		return
+	}
+
+	utils.LogInfo(ctx, "Event updated successfully", utils.Fields{
+		"event_id": eventID,
+		"user_id":  userUUID,
+	})
+
+	c.JSON(http.StatusOK, models.EventResponseREST{
+		Success: true,
+		Data:    eventDetail,
+	})
+}
+
+// DeleteEventREST handles DELETE /api/v1/events/{event_id}
+// @Summary Delete event (RESTful)
+// @Description Delete an event with optional force parameter
+// @Tags events
+// @Produce json
+// @Param event_id path string true "Event ID"
+// @Param force query bool false "Force hard delete"
+// @Success 200 {object} models.DeleteEventResponseREST
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security BearerAuth
+// @Router /api/v1/events/{event_id} [delete]
+func (h *EventHandler) DeleteEventREST(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Parse event ID from path
+	eventIDStr := c.Param("event_id")
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		h.errorResponse(c, utils.NewValidationError("Invalid event ID format", map[string]interface{}{
+			"field": "event_id",
+			"value": eventIDStr,
+		}))
+		return
+	}
+
+	// Parse force parameter
+	force := c.Query("force") == "true"
+
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.errorResponse(c, utils.NewAuthError("User not authenticated"))
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		h.errorResponse(c, utils.NewAuthError("Invalid user ID"))
+		return
+	}
+
+	// Check if event exists and belongs to user
+	event, err := h.db.GetEventByID(ctx, eventID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to get event", err, utils.Fields{
+			"event_id": eventID,
+			"user_id":  userUUID,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to retrieve event"))
+		return
+	}
+
+	if event == nil {
+		h.errorResponse(c, utils.NewNotFoundError("Event not found"))
+		return
+	}
+
+	if event.UserID != userUUID {
+		h.errorResponse(c, utils.NewForbiddenError("Access denied"))
+		return
+	}
+
+	// Delete event
+	err = h.db.DeleteEventREST(ctx, eventID, force)
+	if err != nil {
+		utils.LogError(ctx, "Failed to delete event", err, utils.Fields{
+			"event_id": eventID,
+			"user_id":  userUUID,
+			"force":    force,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to delete event"))
+		return
+	}
+
+	utils.LogInfo(ctx, "Event deleted successfully", utils.Fields{
+		"event_id": eventID,
+		"user_id":  userUUID,
+		"force":    force,
+	})
+
+	message := "Event cancelled successfully"
+	if force {
+		message = "Event deleted permanently"
+	}
+
+	c.JSON(http.StatusOK, models.DeleteEventResponseREST{
+		Success: true,
+		Message: message,
+		Data: &models.EventDeleteDataREST{
+			EventID:   eventIDStr,
+			DeletedAt: time.Now(),
+		},
+	})
+}
+
+// GetEventREST handles GET /api/v1/events/{event_id}
+// @Summary Get event details (RESTful)
+// @Description Get detailed information about a specific event
+// @Tags events
+// @Produce json
+// @Param event_id path string true "Event ID"
+// @Success 200 {object} models.EventResponseREST
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security BearerAuth
+// @Router /api/v1/events/{event_id} [get]
+func (h *EventHandler) GetEventREST(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Parse event ID from path
+	eventIDStr := c.Param("event_id")
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		h.errorResponse(c, utils.NewValidationError("Invalid event ID format", map[string]interface{}{
+			"field": "event_id",
+			"value": eventIDStr,
+		}))
+		return
+	}
+
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.errorResponse(c, utils.NewAuthError("User not authenticated"))
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		h.errorResponse(c, utils.NewAuthError("Invalid user ID"))
+		return
+	}
+
+	// Check if event exists and belongs to user
+	event, err := h.db.GetEventByID(ctx, eventID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to get event", err, utils.Fields{
+			"event_id": eventID,
+			"user_id":  userUUID,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to retrieve event"))
+		return
+	}
+
+	if event == nil {
+		h.errorResponse(c, utils.NewNotFoundError("Event not found"))
+		return
+	}
+
+	if event.UserID != userUUID {
+		h.errorResponse(c, utils.NewForbiddenError("Access denied"))
+		return
+	}
+
+	// Get detailed event information
+	eventDetail, err := h.db.GetEventREST(ctx, eventID)
+	if err != nil {
+		utils.LogError(ctx, "Failed to get event details", err, utils.Fields{
+			"event_id": eventID,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to retrieve event details"))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.EventResponseREST{
+		Success: true,
+		Data:    eventDetail,
+	})
+}
+
+// ListEventsREST handles GET /api/v1/events
+// @Summary List events (RESTful)
+// @Description Get paginated list of events with enhanced filtering
+// @Tags events
+// @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param limit query int false "Items per page (default: 20, max: 100)"
+// @Param event_year query int false "Filter by year (e.g., 2024)"
+// @Param event_month query int false "Filter by month (1-12)"
+// @Param event_week query int false "Filter by ISO week number (1-53)"
+// @Param status query string false "Filter by status (scheduled, live, completed, cancelled, postponed)"
+// @Param show_id query string false "Filter by show ID"
+// @Param search query string false "Search in event names"
+// @Param sort query string false "Sort field (event_date, event_name, created_at)"
+// @Param order query string false "Sort order (asc, desc)"
+// @Success 200 {object} models.EventListResponseREST
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security BearerAuth
+// @Router /api/v1/events [get]
+func (h *EventHandler) ListEventsREST(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Get user ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.errorResponse(c, utils.NewAuthError("User not authenticated"))
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		h.errorResponse(c, utils.NewAuthError("Invalid user ID"))
+		return
+	}
+
+	// Parse pagination parameters
+	page := 1
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	limit := 20
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	// Parse time-based filters
+	var eventYear, eventMonth, eventWeek *int
+
+	if yearStr := c.Query("event_year"); yearStr != "" {
+		if year, err := strconv.Atoi(yearStr); err == nil && year >= 2020 && year <= 2030 {
+			eventYear = &year
+		}
+	}
+
+	if monthStr := c.Query("event_month"); monthStr != "" {
+		if month, err := strconv.Atoi(monthStr); err == nil && month >= 1 && month <= 12 {
+			eventMonth = &month
+		}
+	}
+
+	if weekStr := c.Query("event_week"); weekStr != "" {
+		if week, err := strconv.Atoi(weekStr); err == nil && week >= 1 && week <= 53 {
+			eventWeek = &week
+		}
+	}
+
+	// Parse other filters
+	status := models.EventStatus(c.Query("status"))
+	showID := c.Query("show_id")
+	search := c.Query("search")
+	sortField := c.Query("sort")
+	sortOrder := c.Query("order")
+
+	// Validate status if provided
+	if status != "" {
+		validStatuses := map[models.EventStatus]bool{
+			models.EventStatusScheduled: true,
+			models.EventStatusLive:      true,
+			models.EventStatusCompleted: true,
+			models.EventStatusCancelled: true,
+			models.EventStatusPostponed: true,
+		}
+		if !validStatuses[status] {
+			h.errorResponse(c, utils.NewValidationError("Invalid status", map[string]interface{}{
+				"field": "status",
+				"value": status,
+			}))
+			return
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	// Get events from database
+	events, total, filters, err := h.db.ListEventsREST(ctx, userUUID, eventYear, eventMonth, eventWeek, status, showID, search, sortField, sortOrder, limit, offset)
+	if err != nil {
+		utils.LogError(ctx, "Failed to list events", err, utils.Fields{
+			"user_id": userUUID,
+		})
+		h.errorResponse(c, utils.NewInternalErrorWithMessage("Failed to retrieve events"))
 		return
 	}
 
 	// Calculate pagination
-	totalPages := (total + req.Pagination.Limit - 1) / req.Pagination.Limit
+	totalPages := (total + limit - 1) / limit
 
-	c.JSON(http.StatusOK, models.EventListResponse{
+	c.JSON(http.StatusOK, models.EventListResponseREST{
 		Success: true,
-		Data: &models.EventListData{
+		Data: &models.EventListDataREST{
 			Events: events,
 			Pagination: models.PaginationResponse{
-				Page:       req.Pagination.Page,
-				Limit:      req.Pagination.Limit,
+				Page:       page,
+				Limit:      limit,
 				Total:      total,
 				TotalPages: totalPages,
 			},
+			Filters: filters,
 		},
 	})
 }
 
-// WeekListEvents handles POST /api/v1/event/weekList
-// @Summary Get week view of events
-// @Description Get events organized by days for a specific week
-// @Tags events
-// @Accept json
-// @Produce json
-// @Param request body models.WeekListRequest true "Week view request"
-// @Success 200 {object} models.WeekListResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /api/v1/event/weekList [post]
-func (h *EventHandler) WeekListEvents(c *gin.Context) {
-	var req models.WeekListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
-		return
-	}
+// Helper methods for RESTful handlers
 
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userUUID, ok := userID.(uuid.UUID)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
-		return
-	}
-
-	// Parse week start date
-	weekStart, err := time.Parse("2006-01-02", req.WeekStart)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, expected YYYY-MM-DD"})
-		return
-	}
-
-	// Ensure it's Monday (start of week)
-	for weekStart.Weekday() != time.Monday {
-		weekStart = weekStart.AddDate(0, 0, -1)
-	}
-
-	// Set timezone
-	timezone := req.Timezone
-	if timezone == "" {
-		timezone = "UTC"
-	}
-
-	// Get events for the week
-	events, err := h.db.GetWeekEvents(c.Request.Context(), userUUID, weekStart, req.Filters)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get week events", err, utils.Fields{
-			"user_id":    userUUID,
-			"week_start": weekStart,
+func (h *EventHandler) errorResponse(c *gin.Context, err error) {
+	if appErr, ok := err.(*utils.AppError); ok {
+		c.JSON(appErr.StatusCode, map[string]interface{}{
+			"success": false,
+			"error":   appErr.Message,
+			"details": appErr.Details,
 		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve week events"})
-		return
+	} else {
+		c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Internal server error",
+		})
+	}
+}
+
+func (h *EventHandler) validateUserIDs(ctx context.Context, userIDStrings []string) ([]uuid.UUID, error) {
+	userIDs := make([]uuid.UUID, len(userIDStrings))
+	for i, userIDStr := range userIDStrings {
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid user ID format: %s", userIDStr)
+		}
+		userIDs[i] = userID
 	}
 
-	// Organize events by day
-	days := make([]models.WeekDay, 7)
-	weekDays := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	// Validate that all users exist
+	summaries, err := h.db.GetUserSummaries(ctx, userIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate users: %w", err)
+	}
 
-	for i := 0; i < 7; i++ {
-		dayDate := weekStart.AddDate(0, 0, i)
-		days[i] = models.WeekDay{
-			Date:    dayDate.Format("2006-01-02"),
-			DayName: weekDays[i],
-			Events:  []models.WeekDayEvent{},
+	if len(summaries) != len(userIDs) {
+		return nil, fmt.Errorf("one or more users not found")
+	}
+
+	return userIDs, nil
+}
+
+func (h *EventHandler) isValidTelegramChannel(channel string) bool {
+	// Basic validation for Telegram channels
+	if len(channel) == 0 || len(channel) > 50 {
+		return false
+	}
+	// Should start with @ and contain valid characters
+	if !strings.HasPrefix(channel, "@") {
+		return false
+	}
+	// Rest of the channel name should be alphanumeric or underscores
+	channelName := channel[1:]
+	for _, char := range channelName {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_') {
+			return false
 		}
 	}
-
-	// Distribute events to days
-	for _, event := range events {
-		// TODO: Fix this - need to parse start time and determine day
-		// For now, we'll distribute based on event start time
-		_ = event // Suppress unused variable warning
-	}
-
-	weekEnd := weekStart.AddDate(0, 0, 6)
-
-	c.JSON(http.StatusOK, models.WeekListResponse{
-		Success: true,
-		Data: &models.WeekListData{
-			WeekStart:   weekStart.Format("2006-01-02"),
-			WeekEnd:     weekEnd.Format("2006-01-02"),
-			Timezone:    timezone,
-			Days:        days,
-			TotalEvents: len(events),
-		},
-	})
-}
-
-// MonthListEvents handles POST /api/v1/event/monthList
-// @Summary Get month view of events
-// @Description Get events organized by weeks and days for a specific month
-// @Tags events
-// @Accept json
-// @Produce json
-// @Param request body models.MonthListRequest true "Month view request"
-// @Success 200 {object} models.MonthListResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /api/v1/event/monthList [post]
-func (h *EventHandler) MonthListEvents(c *gin.Context) {
-	var req models.MonthListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
-		return
-	}
-
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userUUID, ok := userID.(uuid.UUID)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
-		return
-	}
-
-	// Set timezone
-	timezone := req.Timezone
-	if timezone == "" {
-		timezone = "UTC"
-	}
-
-	// Get events for the month
-	events, err := h.db.GetMonthEvents(c.Request.Context(), userUUID, req.Year, req.Month, req.Filters)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get month events", err, utils.Fields{
-			"user_id": userUUID,
-			"year":    req.Year,
-			"month":   req.Month,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve month events"})
-		return
-	}
-
-	// Create month structure
-	monthNames := []string{"", "January", "February", "March", "April", "May", "June",
-		"July", "August", "September", "October", "November", "December"}
-
-	// Count events by status
-	eventsByStatus := make(map[models.EventStatus]int)
-	for _, event := range events {
-		eventsByStatus[event.Status]++
-	}
-
-	// TODO: Implement proper week/day organization
-	// This is a simplified version - need to properly organize events by calendar weeks
-	weeks := []models.MonthWeek{
-		{
-			WeekNumber: 1,
-			Days:       []models.MonthDay{},
-		},
-	}
-
-	c.JSON(http.StatusOK, models.MonthListResponse{
-		Success: true,
-		Data: &models.MonthListData{
-			Year:           req.Year,
-			Month:          req.Month,
-			MonthName:      monthNames[req.Month],
-			Timezone:       timezone,
-			Weeks:          weeks,
-			TotalEvents:    len(events),
-			EventsByStatus: eventsByStatus,
-		},
-	})
-}
-
-// GetEventInfo handles GET /api/v1/event/info/{event_id}
-// @Summary Get event details
-// @Description Get detailed information about a specific event including show details
-// @Tags events
-// @Produce json
-// @Param event_id path string true "Event ID"
-// @Success 200 {object} models.GetEventInfoResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security BearerAuth
-// @Router /api/v1/event/info/{event_id} [get]
-func (h *EventHandler) GetEventInfo(c *gin.Context) {
-	eventIDStr := c.Param("event_id")
-	eventID, err := uuid.Parse(eventIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID format"})
-		return
-	}
-
-	// Get event
-	event, err := h.db.GetEventByID(c.Request.Context(), eventID)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get event", err, utils.Fields{
-			"event_id": eventID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve event"})
-		return
-	}
-
-	if event == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
-		return
-	}
-
-	// Get associated show
-	show, err := h.db.GetShowByID(c.Request.Context(), event.ShowID)
-	if err != nil {
-		utils.LogError(c.Request.Context(), "Failed to get show", err, utils.Fields{
-			"show_id": event.ShowID,
-		})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve show"})
-		return
-	}
-
-	if show == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Associated show not found"})
-		return
-	}
-
-	showSummary := &models.ShowSummary{
-		ID:            show.ID,
-		ShowName:      show.ShowName,
-		RepeatPattern: show.RepeatPattern,
-		Status:        show.Status,
-	}
-
-	c.JSON(http.StatusOK, models.GetEventInfoResponse{
-		Success: true,
-		Data: &models.EventInfoData{
-			Event:       event,
-			ShowDetails: showSummary,
-		},
-	})
+	return len(channelName) >= 1
 }

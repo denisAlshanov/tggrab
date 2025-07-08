@@ -305,6 +305,17 @@ definitions:
       topic:
         type: string
     type: object
+  models.BlockSummaryREST:
+    properties:
+      estimated_length:
+        type: integer
+      id:
+        type: string
+      order_index:
+        type: integer
+      title:
+        type: string
+    type: object
   models.BlockType:
     enum:
     - intro
@@ -483,13 +494,6 @@ definitions:
       success:
         type: boolean
     type: object
-  models.DateRange:
-    properties:
-      end:
-        type: string
-      start:
-        type: string
-    type: object
   models.DeleteBlockData:
     properties:
       block_id:
@@ -519,21 +523,10 @@ definitions:
       success:
         type: boolean
     type: object
-  models.DeleteEventRequest:
-    properties:
-      cancellation_reason:
-        type: string
-      event_id:
-        type: string
-    required:
-    - event_id
-    type: object
-  models.DeleteEventResponse:
+  models.DeleteEventResponseREST:
     properties:
       data:
-        $ref: '#/definitions/models.EventDeleteData'
-      error:
-        type: string
+        $ref: '#/definitions/models.EventDeleteDataREST'
       message:
         type: string
       success:
@@ -626,58 +619,6 @@ definitions:
       user_agent:
         type: string
     type: object
-  models.Event:
-    properties:
-      additional_key:
-        type: string
-      created_at:
-        description: Audit fields
-        type: string
-      custom_fields:
-        additionalProperties: true
-        type: object
-      end_datetime:
-        type: string
-      event_description:
-        type: string
-      event_title:
-        description: Event details (can override show defaults)
-        type: string
-      generated_at:
-        description: Generation tracking
-        type: string
-      id:
-        type: string
-      is_customized:
-        type: boolean
-      last_synced_at:
-        type: string
-      length_minutes:
-        type: integer
-      show_id:
-        type: string
-      show_version:
-        type: integer
-      start_datetime:
-        description: Timing (can override show defaults)
-        type: string
-      status:
-        allOf:
-        - $ref: '#/definitions/models.EventStatus'
-        description: Event metadata
-      updated_at:
-        type: string
-      user_id:
-        type: string
-      youtube_key:
-        type: string
-      zoom_meeting_id:
-        type: string
-      zoom_meeting_url:
-        type: string
-      zoom_passcode:
-        type: string
-    type: object
   models.EventBlocksData:
     properties:
       blocks:
@@ -702,91 +643,114 @@ definitions:
       success:
         type: boolean
     type: object
-  models.EventDeleteData:
+  models.EventDeleteDataREST:
     properties:
-      cancelled_at:
+      deleted_at:
         type: string
       event_id:
         type: string
+    type: object
+  models.EventDetailREST:
+    properties:
+      blocks:
+        items:
+          $ref: '#/definitions/models.BlockSummaryREST'
+        type: array
+      created_at:
+        type: string
+      director:
+        items:
+          $ref: '#/definitions/models.UserSummary'
+        type: array
+      event_date:
+        type: string
+      event_name:
+        type: string
+      host:
+        items:
+          $ref: '#/definitions/models.UserSummary'
+        type: array
+      id:
+        type: string
+      length_minutes:
+        type: integer
+      producer:
+        items:
+          $ref: '#/definitions/models.UserSummary'
+        type: array
+      show:
+        $ref: '#/definitions/models.ShowSummary'
+      status:
+        $ref: '#/definitions/models.EventStatus'
+      telegram:
+        type: string
+      updated_at:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_url:
+        type: string
+    type: object
+  models.EventFiltersREST:
+    properties:
+      event_month:
+        type: integer
+      event_week:
+        type: integer
+      event_year:
+        type: integer
+      search:
+        type: string
+      show_id:
+        type: string
       status:
         $ref: '#/definitions/models.EventStatus'
     type: object
-  models.EventFilters:
-    properties:
-      date_range:
-        $ref: '#/definitions/models.DateRange'
-      is_customized:
-        type: boolean
-      show_ids:
-        items:
-          type: string
-        type: array
-      status:
-        items:
-          $ref: '#/definitions/models.EventStatus'
-        type: array
-    type: object
-  models.EventInfoData:
-    properties:
-      event:
-        $ref: '#/definitions/models.Event'
-      show_details:
-        $ref: '#/definitions/models.ShowSummary'
-    type: object
-  models.EventListData:
+  models.EventListDataREST:
     properties:
       events:
         items:
-          $ref: '#/definitions/models.EventListItem'
+          $ref: '#/definitions/models.EventListItemREST'
         type: array
+      filters:
+        $ref: '#/definitions/models.EventFiltersREST'
       pagination:
         $ref: '#/definitions/models.PaginationResponse'
     type: object
-  models.EventListItem:
+  models.EventListItemREST:
     properties:
-      end_datetime:
+      block_count:
+        type: integer
+      event_date:
         type: string
-      event_title:
+      event_name:
         type: string
-      has_zoom_meeting:
+      has_zoom:
         type: boolean
+      host_count:
+        type: integer
       id:
         type: string
-      is_customized:
-        type: boolean
-      show_id:
-        type: string
-      show_name:
-        type: string
-      start_datetime:
-        type: string
+      length_minutes:
+        type: integer
+      show:
+        $ref: '#/definitions/models.ShowSummary'
       status:
         $ref: '#/definitions/models.EventStatus'
     type: object
-  models.EventListRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.EventFilters'
-      pagination:
-        $ref: '#/definitions/models.PaginationOptions'
-      sort:
-        $ref: '#/definitions/models.EventSortOptions'
-    type: object
-  models.EventListResponse:
+  models.EventListResponseREST:
     properties:
       data:
-        $ref: '#/definitions/models.EventListData'
-      error:
-        type: string
+        $ref: '#/definitions/models.EventListDataREST'
       success:
         type: boolean
     type: object
-  models.EventSortOptions:
+  models.EventResponseREST:
     properties:
-      field:
-        type: string
-      order:
-        type: string
+      data:
+        $ref: '#/definitions/models.EventDetailREST'
+      success:
+        type: boolean
     type: object
   models.EventStatus:
     enum:
@@ -819,15 +783,6 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/models.BlockInfoData'
-      error:
-        type: string
-      success:
-        type: boolean
-    type: object
-  models.GetEventInfoResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.EventInfoData'
       error:
         type: string
       success:
@@ -1000,21 +955,6 @@ definitions:
       guest_id:
         type: string
     type: object
-  models.GuestFilters:
-    properties:
-      created_date_range:
-        $ref: '#/definitions/models.DateRange'
-      has_contact_type:
-        items:
-          $ref: '#/definitions/models.ContactType'
-        type: array
-      search:
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
-    type: object
   models.GuestInfoData:
     properties:
       guest:
@@ -1046,13 +986,6 @@ definitions:
         items:
           type: string
         type: array
-    type: object
-  models.GuestSortOptions:
-    properties:
-      field:
-        type: string
-      order:
-        type: string
     type: object
   models.GuestStats:
     properties:
@@ -1096,13 +1029,6 @@ definitions:
         $ref: '#/definitions/models.PaginationResponse'
     type: object
   models.ListGuestsRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.GuestFilters'
-      pagination:
-        $ref: '#/definitions/models.PaginationOptions'
-      sort:
-        $ref: '#/definitions/models.GuestSortOptions'
     type: object
   models.ListGuestsResponse:
     properties:
@@ -1214,102 +1140,6 @@ definitions:
         items:
           $ref: '#/definitions/models.MediaListItem'
         type: array
-    type: object
-  models.MonthDay:
-    properties:
-      date:
-        type: string
-      day_number:
-        type: integer
-      events:
-        items:
-          $ref: '#/definitions/models.MonthDayEvent'
-        type: array
-      events_count:
-        type: integer
-      is_current_month:
-        type: boolean
-    type: object
-  models.MonthDayEvent:
-    properties:
-      duration_minutes:
-        type: integer
-      id:
-        type: string
-      is_customized:
-        type: boolean
-      show_name:
-        type: string
-      start_time:
-        type: string
-      status:
-        $ref: '#/definitions/models.EventStatus'
-    type: object
-  models.MonthListData:
-    properties:
-      events_by_status:
-        additionalProperties:
-          type: integer
-        type: object
-      month:
-        type: integer
-      month_name:
-        type: string
-      timezone:
-        type: string
-      total_events:
-        type: integer
-      weeks:
-        items:
-          $ref: '#/definitions/models.MonthWeek'
-        type: array
-      year:
-        type: integer
-    type: object
-  models.MonthListRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.EventFilters'
-      month:
-        maximum: 12
-        minimum: 1
-        type: integer
-      timezone:
-        type: string
-      year:
-        maximum: 2030
-        minimum: 2020
-        type: integer
-    required:
-    - month
-    - year
-    type: object
-  models.MonthListResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.MonthListData'
-      error:
-        type: string
-      success:
-        type: boolean
-    type: object
-  models.MonthWeek:
-    properties:
-      days:
-        items:
-          $ref: '#/definitions/models.MonthDay'
-        type: array
-      week_number:
-        type: integer
-    type: object
-  models.PaginationOptions:
-    properties:
-      limit:
-        type: integer
-      page:
-        type: integer
-      sort:
-        type: string
     type: object
   models.PaginationResponse:
     properties:
@@ -1813,42 +1643,38 @@ definitions:
       success:
         type: boolean
     type: object
-  models.UpdateEventRequest:
+  models.UpdateEventRequestREST:
     properties:
-      additional_key:
+      director:
+        items:
+          type: string
+        type: array
+      event_date:
         type: string
-      custom_fields:
-        additionalProperties: true
-        type: object
-      event_description:
+      event_name:
+        maxLength: 255
+        minLength: 1
         type: string
-      event_id:
+      event_time:
         type: string
-      event_title:
-        type: string
+      host:
+        items:
+          type: string
+        type: array
       length_minutes:
+        maximum: 1440
+        minimum: 15
         type: integer
-      start_datetime:
+      producer:
+        items:
+          type: string
+        type: array
+      telegram:
         type: string
       youtube_key:
         type: string
-      zoom_meeting_id:
-        type: string
       zoom_meeting_url:
         type: string
-      zoom_passcode:
-        type: string
-    required:
-    - event_id
-    type: object
-  models.UpdateEventResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.Event'
-      error:
-        type: string
-      success:
-        type: boolean
     type: object
   models.UpdateGuestRequest:
     properties:
@@ -2092,69 +1918,6 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/models.TokenVerificationData'
-      success:
-        type: boolean
-    type: object
-  models.WeekDay:
-    properties:
-      date:
-        type: string
-      day_name:
-        type: string
-      events:
-        items:
-          $ref: '#/definitions/models.WeekDayEvent'
-        type: array
-    type: object
-  models.WeekDayEvent:
-    properties:
-      end_time:
-        type: string
-      event_title:
-        type: string
-      id:
-        type: string
-      is_customized:
-        type: boolean
-      show_name:
-        type: string
-      start_time:
-        type: string
-      status:
-        $ref: '#/definitions/models.EventStatus'
-    type: object
-  models.WeekListData:
-    properties:
-      days:
-        items:
-          $ref: '#/definitions/models.WeekDay'
-        type: array
-      timezone:
-        type: string
-      total_events:
-        type: integer
-      week_end:
-        type: string
-      week_start:
-        type: string
-    type: object
-  models.WeekListRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.EventFilters'
-      timezone:
-        type: string
-      week_start:
-        type: string
-    required:
-    - week_start
-    type: object
-  models.WeekListResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.WeekListData'
-      error:
-        type: string
       success:
         type: boolean
     type: object
@@ -2689,25 +2452,92 @@ paths:
       summary: List all blocks for an event
       tags:
       - blocks
-  /api/v1/event/delete:
-    delete:
-      consumes:
-      - application/json
-      description: Cancel a specific event while preserving show template
+  /api/v1/events:
+    get:
+      description: Get paginated list of events with enhanced filtering
       parameters:
-      - description: Event deletion data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.DeleteEventRequest'
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by year (e.g., 2024)
+        in: query
+        name: event_year
+        type: integer
+      - description: Filter by month (1-12)
+        in: query
+        name: event_month
+        type: integer
+      - description: Filter by ISO week number (1-53)
+        in: query
+        name: event_week
+        type: integer
+      - description: Filter by status (scheduled, live, completed, cancelled, postponed)
+        in: query
+        name: status
+        type: string
+      - description: Filter by show ID
+        in: query
+        name: show_id
+        type: string
+      - description: Search in event names
+        in: query
+        name: search
+        type: string
+      - description: Sort field (event_date, event_name, created_at)
+        in: query
+        name: sort
+        type: string
+      - description: Sort order (asc, desc)
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.DeleteEventResponse'
+            $ref: '#/definitions/models.EventListResponseREST'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List events (RESTful)
+      tags:
+      - events
+  /api/v1/events/{event_id}:
+    delete:
+      description: Delete an event with optional force parameter
+      parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: string
+      - description: Force hard delete
+        in: query
+        name: force
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteEventResponseREST'
         "400":
           description: Bad Request
           schema:
@@ -2725,13 +2555,11 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Cancel/delete event
+      summary: Delete event (RESTful)
       tags:
       - events
-  /api/v1/event/info/{event_id}:
     get:
-      description: Get detailed information about a specific event including show
-        details
+      description: Get detailed information about a specific event
       parameters:
       - description: Event ID
         in: path
@@ -2744,7 +2572,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.GetEventInfoResponse'
+            $ref: '#/definitions/models.EventResponseREST'
         "400":
           description: Bad Request
           schema:
@@ -2762,97 +2590,32 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Get event details
+      summary: Get event details (RESTful)
       tags:
       - events
-  /api/v1/event/list:
-    post:
-      consumes:
-      - application/json
-      description: Get paginated list of events with filtering and sorting options
-      parameters:
-      - description: Event list filters
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.EventListRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.EventListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: List events with filtering
-      tags:
-      - events
-  /api/v1/event/monthList:
-    post:
-      consumes:
-      - application/json
-      description: Get events organized by weeks and days for a specific month
-      parameters:
-      - description: Month view request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.MonthListRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.MonthListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get month view of events
-      tags:
-      - events
-  /api/v1/event/update:
     put:
       consumes:
       - application/json
-      description: Update specific event with custom fields while preserving show
-        inheritance
+      description: Update an event with simplified request format and staff assignments
       parameters:
+      - description: Event ID
+        in: path
+        name: event_id
+        required: true
+        type: string
       - description: Event update data
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/models.UpdateEventRequest'
+          $ref: '#/definitions/models.UpdateEventRequestREST'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.UpdateEventResponse'
+            $ref: '#/definitions/models.EventResponseREST'
         "400":
           description: Bad Request
           schema:
@@ -2870,41 +2633,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Update event details
-      tags:
-      - events
-  /api/v1/event/weekList:
-    post:
-      consumes:
-      - application/json
-      description: Get events organized by days for a specific week
-      parameters:
-      - description: Week view request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.WeekListRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.WeekListResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get week view of events
+      summary: Update event (RESTful)
       tags:
       - events
   /api/v1/guest/autocomplete:

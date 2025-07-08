@@ -92,16 +92,6 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			showREST.DELETE("/:show_id", showHandler.DeleteShowREST)         // /api/v1/shows/{show_id}
 		}
 
-		// Event endpoints
-		event := api.Group("/event")
-		{
-			event.PUT("/update", eventHandler.UpdateEvent)         // /api/v1/event/update
-			event.DELETE("/delete", eventHandler.DeleteEvent)      // /api/v1/event/delete
-			event.POST("/list", eventHandler.ListEvents)           // /api/v1/event/list
-			event.POST("/weekList", eventHandler.WeekListEvents)   // /api/v1/event/weekList
-			event.POST("/monthList", eventHandler.MonthListEvents) // /api/v1/event/monthList
-			event.GET("/info/:event_id", eventHandler.GetEventInfo) // /api/v1/event/info/{event_id}
-		}
 
 		// Guest endpoints
 		guest := api.Group("/guest")
@@ -150,6 +140,15 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			roleREST.PUT("/:role_id", roleHandler.UpdateRoleREST)                      // /api/v1/roles/{role_id}
 			roleREST.DELETE("/:role_id", roleHandler.DeleteRoleREST)                   // /api/v1/roles/{role_id}
 			roleREST.PUT("/:role_id/users/:user_id", roleHandler.AddUserToRole)        // /api/v1/roles/{role_id}/users/{user_id}
+		}
+
+		// RESTful Event endpoints (New)
+		eventREST := api.Group("/events")
+		{
+			eventREST.GET("", eventHandler.ListEventsREST)                             // /api/v1/events
+			eventREST.GET("/:event_id", eventHandler.GetEventREST)                     // /api/v1/events/{event_id}
+			eventREST.PUT("/:event_id", eventHandler.UpdateEventREST)                  // /api/v1/events/{event_id}
+			eventREST.DELETE("/:event_id", eventHandler.DeleteEventREST)               // /api/v1/events/{event_id}
 		}
 	}
 

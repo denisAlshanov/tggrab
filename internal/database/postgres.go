@@ -1594,22 +1594,6 @@ func (p *PostgresDB) UpdateEvent(ctx context.Context, event *models.Event) error
 	return err
 }
 
-func (p *PostgresDB) DeleteEvent(ctx context.Context, eventID uuid.UUID) error {
-	// Soft delete by updating status to cancelled
-	query := `UPDATE events SET status = $2 WHERE id = $1`
-	
-	result, err := p.pool.Exec(ctx, query, eventID, models.EventStatusCancelled)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected := result.RowsAffected()
-	if rowsAffected == 0 {
-		return fmt.Errorf("no event found with ID: %s", eventID)
-	}
-
-	return nil
-}
 
 func (p *PostgresDB) GetEventsByShowID(ctx context.Context, showID uuid.UUID) ([]models.Event, error) {
 	query := `
@@ -1649,254 +1633,8 @@ func (p *PostgresDB) GetFutureEvents(ctx context.Context, showID uuid.UUID) ([]m
 	return p.scanEvents(rows)
 }
 
-func (p *PostgresDB) ListEvents(ctx context.Context, userID uuid.UUID, filters models.EventFilters, pagination models.PaginationOptions, sort models.EventSortOptions) ([]models.EventListItem, int, error) {
-	// Set defaults
-	if pagination.Limit <= 0 {
-		pagination.Limit = 20
-	}
-	if pagination.Page <= 0 {
-		pagination.Page = 1
-	}
-	offset := (pagination.Page - 1) * pagination.Limit
 
-	// Build where clause
-	whereConditions := []string{"e.user_id = $1"}
-	args := []interface{}{userID}
-	argCount := 1
 
-	// Status filter
-	if len(filters.Status) > 0 {
-		statusPlaceholders := make([]string, len(filters.Status))
-		for i, status := range filters.Status {
-			argCount++
-			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, status)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("e.status IN (%s)", strings.Join(statusPlaceholders, ",")))
-	}
-
-	// Show IDs filter
-	if len(filters.ShowIDs) > 0 {
-		showPlaceholders := make([]string, len(filters.ShowIDs))
-		for i, showID := range filters.ShowIDs {
-			argCount++
-			showPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, showID)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("e.show_id IN (%s)", strings.Join(showPlaceholders, ",")))
-	}
-
-	// Date range filter
-	if filters.DateRange != nil {
-		argCount++
-		whereConditions = append(whereConditions, fmt.Sprintf("e.start_datetime >= $%d", argCount))
-		args = append(args, filters.DateRange.Start)
-		
-		argCount++
-		whereConditions = append(whereConditions, fmt.Sprintf("e.start_datetime <= $%d", argCount))
-		args = append(args, filters.DateRange.End)
-	}
-
-	// Customization filter
-	if filters.IsCustomized != nil {
-		argCount++
-		whereConditions = append(whereConditions, fmt.Sprintf("e.is_customized = $%d", argCount))
-		args = append(args, *filters.IsCustomized)
-	}
-
-	whereClause := strings.Join(whereConditions, " AND ")
-
-	// Count total
-	var total int
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*) 
-		FROM events e 
-		JOIN shows s ON e.show_id = s.id 
-		WHERE %s`, whereClause)
-	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	// Build order by clause
-	orderBy := "e.start_datetime ASC" // default
-	if sort.Field != "" {
-		allowedFields := map[string]bool{
-			"start_datetime": true,
-			"end_datetime":   true,
-			"status":         true,
-			"created_at":     true,
-		}
-		if allowedFields[sort.Field] {
-			order := "ASC"
-			if strings.ToUpper(sort.Order) == "DESC" {
-				order = "DESC"
-			}
-			orderBy = fmt.Sprintf("e.%s %s", sort.Field, order)
-		}
-	}
-
-	// Get events
-	query := fmt.Sprintf(`
-		SELECT e.id, e.show_id, s.show_name, e.event_title, e.start_datetime, e.end_datetime,
-			e.status, e.is_customized, 
-			CASE WHEN s.zoom_meeting_url IS NOT NULL OR e.zoom_meeting_url IS NOT NULL THEN true ELSE false END as has_zoom_meeting
-		FROM events e 
-		JOIN shows s ON e.show_id = s.id 
-		WHERE %s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
-
-	args = append(args, pagination.Limit, offset)
-
-	rows, err := p.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var events []models.EventListItem
-	for rows.Next() {
-		var event models.EventListItem
-		err := rows.Scan(
-			&event.ID, &event.ShowID, &event.ShowName, &event.EventTitle,
-			&event.StartDateTime, &event.EndDateTime, &event.Status,
-			&event.IsCustomized, &event.HasZoomMeeting,
-		)
-		if err != nil {
-			return nil, 0, err
-		}
-		events = append(events, event)
-	}
-
-	return events, total, nil
-}
-
-func (p *PostgresDB) GetWeekEvents(ctx context.Context, userID uuid.UUID, weekStart time.Time, filters models.EventFilters) ([]models.WeekDayEvent, error) {
-	weekEnd := weekStart.AddDate(0, 0, 7)
-
-	// Build where clause
-	whereConditions := []string{"e.user_id = $1", "e.start_datetime >= $2", "e.start_datetime < $3"}
-	args := []interface{}{userID, weekStart, weekEnd}
-	argCount := 3
-
-	// Add additional filters similar to ListEvents
-	if len(filters.Status) > 0 {
-		statusPlaceholders := make([]string, len(filters.Status))
-		for i, status := range filters.Status {
-			argCount++
-			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, status)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("e.status IN (%s)", strings.Join(statusPlaceholders, ",")))
-	}
-
-	if len(filters.ShowIDs) > 0 {
-		showPlaceholders := make([]string, len(filters.ShowIDs))
-		for i, showID := range filters.ShowIDs {
-			argCount++
-			showPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, showID)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("e.show_id IN (%s)", strings.Join(showPlaceholders, ",")))
-	}
-
-	whereClause := strings.Join(whereConditions, " AND ")
-
-	query := fmt.Sprintf(`
-		SELECT e.id, s.show_name, e.event_title, e.start_datetime, e.end_datetime, e.status, e.is_customized
-		FROM events e 
-		JOIN shows s ON e.show_id = s.id 
-		WHERE %s
-		ORDER BY e.start_datetime ASC`, whereClause)
-
-	rows, err := p.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var events []models.WeekDayEvent
-	for rows.Next() {
-		var event models.WeekDayEvent
-		var startTime, endTime time.Time
-		err := rows.Scan(
-			&event.ID, &event.ShowName, &event.EventTitle,
-			&startTime, &endTime, &event.Status, &event.IsCustomized,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		// Format times
-		event.StartTime = startTime.Format("15:04")
-		event.EndTime = endTime.Format("15:04")
-		events = append(events, event)
-	}
-
-	return events, nil
-}
-
-func (p *PostgresDB) GetMonthEvents(ctx context.Context, userID uuid.UUID, year int, month int, filters models.EventFilters) ([]models.MonthDayEvent, error) {
-	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	monthEnd := monthStart.AddDate(0, 1, 0)
-
-	// Build where clause similar to GetWeekEvents
-	whereConditions := []string{"e.user_id = $1", "e.start_datetime >= $2", "e.start_datetime < $3"}
-	args := []interface{}{userID, monthStart, monthEnd}
-	argCount := 3
-
-	if len(filters.Status) > 0 {
-		statusPlaceholders := make([]string, len(filters.Status))
-		for i, status := range filters.Status {
-			argCount++
-			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, status)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("e.status IN (%s)", strings.Join(statusPlaceholders, ",")))
-	}
-
-	whereClause := strings.Join(whereConditions, " AND ")
-
-	query := fmt.Sprintf(`
-		SELECT e.id, s.show_name, e.start_datetime, e.length_minutes, e.status, e.is_customized, s.length_minutes
-		FROM events e 
-		JOIN shows s ON e.show_id = s.id 
-		WHERE %s
-		ORDER BY e.start_datetime ASC`, whereClause)
-
-	rows, err := p.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var events []models.MonthDayEvent
-	for rows.Next() {
-		var event models.MonthDayEvent
-		var startTime time.Time
-		var eventDuration *int
-		var showDuration int
-		err := rows.Scan(
-			&event.ID, &event.ShowName, &startTime,
-			&eventDuration, &event.Status, &event.IsCustomized, &showDuration,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		// Use event duration if available, otherwise show duration
-		if eventDuration != nil {
-			event.DurationMinutes = *eventDuration
-		} else {
-			event.DurationMinutes = showDuration
-		}
-
-		event.StartTime = startTime.Format("15:04")
-		events = append(events, event)
-	}
-
-	return events, nil
-}
 
 // Helper function to scan events from rows
 func (p *PostgresDB) scanEvents(rows pgx.Rows) ([]models.Event, error) {
@@ -1966,6 +1704,471 @@ func (p *PostgresDB) GetLastGenerationDate(ctx context.Context, showID uuid.UUID
 		return time.Time{}, nil
 	}
 	return lastDate, err
+}
+
+// RESTful Event Operations
+
+// UpdateEventREST updates an event with the new RESTful format
+func (p *PostgresDB) UpdateEventREST(ctx context.Context, eventID uuid.UUID, req *models.UpdateEventRequestREST) (*models.Event, error) {
+	// Get existing event first
+	event, err := p.GetEventByID(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	if event == nil {
+		return nil, fmt.Errorf("event not found")
+	}
+
+	// Build dynamic update query
+	setParts := []string{}
+	args := []interface{}{}
+	argCount := 0
+
+	if req.LengthMinutes != nil {
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("length_minutes = $%d", argCount))
+		args = append(args, *req.LengthMinutes)
+	}
+
+	if req.EventName != nil {
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("event_title = $%d", argCount))
+		args = append(args, *req.EventName)
+	}
+
+	if req.EventDate != nil && req.EventTime != nil {
+		// Parse and combine date and time
+		dateTimeStr := *req.EventDate + "T" + *req.EventTime
+		startDateTime, err := time.Parse("2006-01-02T15:04:05", dateTimeStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date/time format: %w", err)
+		}
+		
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("start_datetime = $%d", argCount))
+		args = append(args, startDateTime)
+		
+		// Update end time if length changed
+		lengthMinutes := event.LengthMinutes
+		if req.LengthMinutes != nil {
+			lengthMinutes = req.LengthMinutes
+		}
+		if lengthMinutes != nil {
+			endDateTime := startDateTime.Add(time.Duration(*lengthMinutes) * time.Minute)
+			argCount++
+			setParts = append(setParts, fmt.Sprintf("end_datetime = $%d", argCount))
+			args = append(args, endDateTime)
+		}
+	}
+
+	if req.YouTubeKey != nil {
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("youtube_key = $%d", argCount))
+		args = append(args, *req.YouTubeKey)
+	}
+
+	if req.ZoomMeetingURL != nil {
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("zoom_meeting_url = $%d", argCount))
+		args = append(args, *req.ZoomMeetingURL)
+	}
+
+	if req.Host != nil {
+		// Convert string UUIDs to UUID array
+		hostUUIDs := make([]uuid.UUID, len(req.Host))
+		for i, hostStr := range req.Host {
+			hostUUID, err := uuid.Parse(hostStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid host UUID %s: %w", hostStr, err)
+			}
+			hostUUIDs[i] = hostUUID
+		}
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("host = $%d", argCount))
+		args = append(args, hostUUIDs)
+	}
+
+	if req.Director != nil {
+		directorUUIDs := make([]uuid.UUID, len(req.Director))
+		for i, directorStr := range req.Director {
+			directorUUID, err := uuid.Parse(directorStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid director UUID %s: %w", directorStr, err)
+			}
+			directorUUIDs[i] = directorUUID
+		}
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("director = $%d", argCount))
+		args = append(args, directorUUIDs)
+	}
+
+	if req.Producer != nil {
+		producerUUIDs := make([]uuid.UUID, len(req.Producer))
+		for i, producerStr := range req.Producer {
+			producerUUID, err := uuid.Parse(producerStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid producer UUID %s: %w", producerStr, err)
+			}
+			producerUUIDs[i] = producerUUID
+		}
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("producer = $%d", argCount))
+		args = append(args, producerUUIDs)
+	}
+
+	if req.Telegram != nil {
+		argCount++
+		setParts = append(setParts, fmt.Sprintf("telegram = $%d", argCount))
+		args = append(args, *req.Telegram)
+	}
+
+	if len(setParts) == 0 {
+		return event, nil // No changes
+	}
+
+	// Always update the updated_at timestamp
+	argCount++
+	setParts = append(setParts, fmt.Sprintf("updated_at = $%d", argCount))
+	args = append(args, time.Now())
+
+	// Mark as customized
+	argCount++
+	setParts = append(setParts, fmt.Sprintf("is_customized = $%d", argCount))
+	args = append(args, true)
+
+	// Add WHERE clause
+	argCount++
+	args = append(args, eventID)
+
+	query := fmt.Sprintf("UPDATE events SET %s WHERE id = $%d", strings.Join(setParts, ", "), argCount)
+
+	_, err = p.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return updated event
+	return p.GetEventByID(ctx, eventID)
+}
+
+// DeleteEventREST deletes an event (soft delete by default)
+func (p *PostgresDB) DeleteEventREST(ctx context.Context, eventID uuid.UUID, force bool) error {
+	if force {
+		// Hard delete
+		query := "DELETE FROM events WHERE id = $1"
+		_, err := p.pool.Exec(ctx, query, eventID)
+		return err
+	} else {
+		// Soft delete - set status to cancelled
+		query := "UPDATE events SET status = $1, updated_at = $2 WHERE id = $3"
+		_, err := p.pool.Exec(ctx, query, models.EventStatusCancelled, time.Now(), eventID)
+		return err
+	}
+}
+
+// GetEventREST gets an event with full details for RESTful response
+func (p *PostgresDB) GetEventREST(ctx context.Context, eventID uuid.UUID) (*models.EventDetailREST, error) {
+	// Get the event
+	event, err := p.GetEventByID(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	if event == nil {
+		return nil, nil
+	}
+
+	// Get show details
+	show, err := p.GetShowByID(ctx, event.ShowID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get host details
+	hostSummaries, err := p.getUserSummaries(ctx, event.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get director details
+	directorSummaries, err := p.getUserSummaries(ctx, event.Director)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get producer details
+	producerSummaries, err := p.getUserSummaries(ctx, event.Producer)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get blocks
+	blocks, err := p.GetEventBlocks(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to REST format
+	blockSummaries := make([]models.BlockSummaryREST, len(blocks))
+	for i, block := range blocks {
+		blockSummaries[i] = models.BlockSummaryREST{
+			ID:              block.ID,
+			Title:           block.Title,
+			OrderIndex:      block.OrderIndex,
+			EstimatedLength: block.EstimatedLength,
+		}
+	}
+
+	// Determine event name (use event title if set, otherwise show name)
+	eventName := show.ShowName
+	if event.EventTitle != nil && *event.EventTitle != "" {
+		eventName = *event.EventTitle
+	}
+
+	showSummary := &models.ShowSummary{
+		ID:            show.ID,
+		ShowName:      show.ShowName,
+		RepeatPattern: show.RepeatPattern,
+		Status:        show.Status,
+	}
+
+	// Determine length (use event length if set, otherwise show length)
+	lengthMinutes := show.LengthMinutes
+	if event.LengthMinutes != nil {
+		lengthMinutes = *event.LengthMinutes
+	}
+
+	return &models.EventDetailREST{
+		ID:            event.ID,
+		EventName:     eventName,
+		EventDate:     event.StartDateTime,
+		LengthMinutes: lengthMinutes,
+		Status:        event.Status,
+		YouTubeKey:    event.YouTubeKey,
+		ZoomMeetingURL: event.ZoomMeetingURL,
+		Host:          hostSummaries,
+		Director:      directorSummaries,
+		Producer:      producerSummaries,
+		Telegram:      event.Telegram,
+		Show:          showSummary,
+		Blocks:        blockSummaries,
+		CreatedAt:     event.CreatedAt,
+		UpdatedAt:     event.UpdatedAt,
+	}, nil
+}
+
+// ListEventsREST returns paginated events for a user with enhanced filtering
+func (p *PostgresDB) ListEventsREST(ctx context.Context, userID uuid.UUID, eventYear, eventMonth, eventWeek *int, status models.EventStatus, showID, search string, sortField, sortOrder string, limit, offset int) ([]models.EventListItemREST, int, *models.EventFiltersREST, error) {
+	// Build where clause
+	whereConditions := []string{"e.user_id = $1"}
+	args := []interface{}{userID}
+	argCount := 1
+
+	// Year filter
+	if eventYear != nil {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("EXTRACT(YEAR FROM e.start_datetime) = $%d", argCount))
+		args = append(args, *eventYear)
+	}
+
+	// Month filter
+	if eventMonth != nil {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("EXTRACT(MONTH FROM e.start_datetime) = $%d", argCount))
+		args = append(args, *eventMonth)
+	}
+
+	// Week filter (ISO week)
+	if eventWeek != nil {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("EXTRACT(WEEK FROM e.start_datetime) = $%d", argCount))
+		args = append(args, *eventWeek)
+	}
+
+	// Status filter
+	if status != "" {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("e.status = $%d", argCount))
+		args = append(args, status)
+	}
+
+	// Show ID filter
+	if showID != "" {
+		showUUID, err := uuid.Parse(showID)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("invalid show ID: %w", err)
+		}
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("e.show_id = $%d", argCount))
+		args = append(args, showUUID)
+	}
+
+	// Search filter
+	if search != "" {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("(LOWER(COALESCE(e.event_title, s.show_name)) LIKE LOWER($%d))", argCount))
+		args = append(args, "%"+search+"%")
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM events e 
+		JOIN shows s ON e.show_id = s.id 
+		WHERE %s`, whereClause)
+	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, nil, err
+	}
+
+	// Build order by clause
+	orderBy := "e.start_datetime ASC" // default
+	if sortField != "" {
+		allowedFields := map[string]string{
+			"event_date":   "e.start_datetime",
+			"event_name":   "COALESCE(e.event_title, s.show_name)",
+			"created_at":   "e.created_at",
+		}
+		if dbField, exists := allowedFields[sortField]; exists {
+			order := "ASC"
+			if strings.ToUpper(sortOrder) == "DESC" {
+				order = "DESC"
+			}
+			orderBy = fmt.Sprintf("%s %s", dbField, order)
+		}
+	}
+
+	// Get events
+	query := fmt.Sprintf(`
+		SELECT e.id, COALESCE(e.event_title, s.show_name) as event_name, e.start_datetime,
+			COALESCE(e.length_minutes, s.length_minutes) as length_minutes, e.status,
+			s.id as show_id, s.show_name, s.repeat_pattern, s.status as show_status,
+			CASE WHEN e.zoom_meeting_url IS NOT NULL AND e.zoom_meeting_url != '' THEN true ELSE false END as has_zoom,
+			COALESCE(array_length(e.host, 1), 0) as host_count
+		FROM events e 
+		JOIN shows s ON e.show_id = s.id 
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
+
+	args = append(args, limit, offset)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	defer rows.Close()
+
+	var events []models.EventListItemREST
+	for rows.Next() {
+		var item models.EventListItemREST
+		var show models.ShowSummary
+
+		err := rows.Scan(
+			&item.ID, &item.EventName, &item.EventDate, &item.LengthMinutes, &item.Status,
+			&show.ID, &show.ShowName, &show.RepeatPattern, &show.Status,
+			&item.HasZoom, &item.HostCount,
+		)
+		if err != nil {
+			return nil, 0, nil, err
+		}
+
+		item.Show = &show
+		
+		// Get block count
+		blockCount, err := p.getEventBlockCount(ctx, item.ID)
+		if err != nil {
+			return nil, 0, nil, err
+		}
+		item.BlockCount = blockCount
+
+		events = append(events, item)
+	}
+
+	// Build filters response
+	filters := &models.EventFiltersREST{
+		EventYear:  eventYear,
+		EventMonth: eventMonth,
+		EventWeek:  eventWeek,
+	}
+	if status != "" {
+		filters.Status = &status
+	}
+	if showID != "" {
+		filters.ShowID = &showID
+	}
+	if search != "" {
+		filters.Search = &search
+	}
+
+	return events, total, filters, nil
+}
+
+// Helper function to get user summaries
+func (p *PostgresDB) getUserSummaries(ctx context.Context, userIDs []uuid.UUID) ([]models.UserSummary, error) {
+	if len(userIDs) == 0 {
+		return []models.UserSummary{}, nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(userIDs))
+	args := make([]interface{}, len(userIDs))
+	for i, userID := range userIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = userID
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, first_name, last_name, email 
+		FROM users 
+		WHERE id IN (%s)`, strings.Join(placeholders, ","))
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []models.UserSummary
+	for rows.Next() {
+		var summary models.UserSummary
+		var firstName, lastName *string
+		
+		err := rows.Scan(&summary.ID, &firstName, &lastName, &summary.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		// Construct name
+		if firstName != nil && lastName != nil {
+			name := *firstName + " " + *lastName
+			summary.Name = name
+		} else if firstName != nil {
+			summary.Name = *firstName
+		} else if lastName != nil {
+			summary.Name = *lastName
+		} else {
+			summary.Name = summary.Email // Fallback to email
+		}
+
+		summaries = append(summaries, summary)
+	}
+
+	return summaries, nil
+}
+
+// GetUserSummaries returns user summaries for the given user IDs (public method)
+func (p *PostgresDB) GetUserSummaries(ctx context.Context, userIDs []uuid.UUID) ([]models.UserSummary, error) {
+	return p.getUserSummaries(ctx, userIDs)
+}
+
+// Helper function to get event block count
+func (p *PostgresDB) getEventBlockCount(ctx context.Context, eventID uuid.UUID) (int, error) {
+	var count int
+	query := "SELECT COUNT(*) FROM blocks WHERE event_id = $1"
+	err := p.pool.QueryRow(ctx, query, eventID).Scan(&count)
+	return count, err
 }
 
 func (p *PostgresDB) GetActiveShows(ctx context.Context) ([]models.Show, error) {

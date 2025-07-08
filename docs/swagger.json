@@ -761,340 +761,6 @@
                 }
             }
         },
-        "/api/v1/event/delete": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Cancel a specific event while preserving show template",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Cancel/delete event",
-                "parameters": [
-                    {
-                        "description": "Event deletion data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.DeleteEventRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.DeleteEventResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/event/info/{event_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get detailed information about a specific event including show details",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Get event details",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Event ID",
-                        "name": "event_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.GetEventInfoResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/event/list": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get paginated list of events with filtering and sorting options",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "List events with filtering",
-                "parameters": [
-                    {
-                        "description": "Event list filters",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.EventListRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.EventListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/event/monthList": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get events organized by weeks and days for a specific month",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Get month view of events",
-                "parameters": [
-                    {
-                        "description": "Month view request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.MonthListRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.MonthListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/event/update": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update specific event with custom fields while preserving show inheritance",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Update event details",
-                "parameters": [
-                    {
-                        "description": "Event update data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.UpdateEventRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.UpdateEventResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/event/weekList": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get events organized by days for a specific week",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "events"
-                ],
-                "summary": "Get week view of events",
-                "parameters": [
-                    {
-                        "description": "Week view request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.WeekListRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.WeekListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/event/{event_id}/blocks": {
             "get": {
                 "security": [
@@ -1124,6 +790,286 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.EventBlocksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get paginated list of events with enhanced filtering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "List events (RESTful)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default: 20, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by year (e.g., 2024)",
+                        "name": "event_year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by month (1-12)",
+                        "name": "event_month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by ISO week number (1-53)",
+                        "name": "event_week",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (scheduled, live, completed, cancelled, postponed)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by show ID",
+                        "name": "show_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search in event names",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field (event_date, event_name, created_at)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc, desc)",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.EventListResponseREST"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/events/{event_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get detailed information about a specific event",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Get event details (RESTful)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.EventResponseREST"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an event with simplified request format and staff assignments",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Update event (RESTful)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Event update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateEventRequestREST"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.EventResponseREST"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete an event with optional force parameter",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Delete event (RESTful)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force hard delete",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteEventResponseREST"
                         }
                     },
                     "400": {
@@ -3612,6 +3558,23 @@
                 }
             }
         },
+        "models.BlockSummaryREST": {
+            "type": "object",
+            "properties": {
+                "estimated_length": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "models.BlockType": {
             "type": "string",
             "enum": [
@@ -3854,17 +3817,6 @@
                 }
             }
         },
-        "models.DateRange": {
-            "type": "object",
-            "properties": {
-                "end": {
-                    "type": "string"
-                },
-                "start": {
-                    "type": "string"
-                }
-            }
-        },
         "models.DeleteBlockData": {
             "type": "object",
             "properties": {
@@ -3910,28 +3862,11 @@
                 }
             }
         },
-        "models.DeleteEventRequest": {
-            "type": "object",
-            "required": [
-                "event_id"
-            ],
-            "properties": {
-                "cancellation_reason": {
-                    "type": "string"
-                },
-                "event_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.DeleteEventResponse": {
+        "models.DeleteEventResponseREST": {
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/models.EventDeleteData"
-                },
-                "error": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.EventDeleteDataREST"
                 },
                 "message": {
                     "type": "string"
@@ -4077,84 +4012,6 @@
                 }
             }
         },
-        "models.Event": {
-            "type": "object",
-            "properties": {
-                "additional_key": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "description": "Audit fields",
-                    "type": "string"
-                },
-                "custom_fields": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "end_datetime": {
-                    "type": "string"
-                },
-                "event_description": {
-                    "type": "string"
-                },
-                "event_title": {
-                    "description": "Event details (can override show defaults)",
-                    "type": "string"
-                },
-                "generated_at": {
-                    "description": "Generation tracking",
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_customized": {
-                    "type": "boolean"
-                },
-                "last_synced_at": {
-                    "type": "string"
-                },
-                "length_minutes": {
-                    "type": "integer"
-                },
-                "show_id": {
-                    "type": "string"
-                },
-                "show_version": {
-                    "type": "integer"
-                },
-                "start_datetime": {
-                    "description": "Timing (can override show defaults)",
-                    "type": "string"
-                },
-                "status": {
-                    "description": "Event metadata",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.EventStatus"
-                        }
-                    ]
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                },
-                "youtube_key": {
-                    "type": "string"
-                },
-                "zoom_meeting_id": {
-                    "type": "string"
-                },
-                "zoom_meeting_url": {
-                    "type": "string"
-                },
-                "zoom_passcode": {
-                    "type": "string"
-                }
-            }
-        },
         "models.EventBlocksData": {
             "type": "object",
             "properties": {
@@ -4192,13 +4049,95 @@
                 }
             }
         },
-        "models.EventDeleteData": {
+        "models.EventDeleteDataREST": {
             "type": "object",
             "properties": {
-                "cancelled_at": {
+                "deleted_at": {
                     "type": "string"
                 },
                 "event_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventDetailREST": {
+            "type": "object",
+            "properties": {
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlockSummaryREST"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "director": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UserSummary"
+                    }
+                },
+                "event_date": {
+                    "type": "string"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UserSummary"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "length_minutes": {
+                    "type": "integer"
+                },
+                "producer": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UserSummary"
+                    }
+                },
+                "show": {
+                    "$ref": "#/definitions/models.ShowSummary"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.EventStatus"
+                },
+                "telegram": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "youtube_key": {
+                    "type": "string"
+                },
+                "zoom_meeting_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EventFiltersREST": {
+            "type": "object",
+            "properties": {
+                "event_month": {
+                    "type": "integer"
+                },
+                "event_week": {
+                    "type": "integer"
+                },
+                "event_year": {
+                    "type": "integer"
+                },
+                "search": {
+                    "type": "string"
+                },
+                "show_id": {
                     "type": "string"
                 },
                 "status": {
@@ -4206,122 +4145,74 @@
                 }
             }
         },
-        "models.EventFilters": {
-            "type": "object",
-            "properties": {
-                "date_range": {
-                    "$ref": "#/definitions/models.DateRange"
-                },
-                "is_customized": {
-                    "type": "boolean"
-                },
-                "show_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "status": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.EventStatus"
-                    }
-                }
-            }
-        },
-        "models.EventInfoData": {
-            "type": "object",
-            "properties": {
-                "event": {
-                    "$ref": "#/definitions/models.Event"
-                },
-                "show_details": {
-                    "$ref": "#/definitions/models.ShowSummary"
-                }
-            }
-        },
-        "models.EventListData": {
+        "models.EventListDataREST": {
             "type": "object",
             "properties": {
                 "events": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.EventListItem"
+                        "$ref": "#/definitions/models.EventListItemREST"
                     }
+                },
+                "filters": {
+                    "$ref": "#/definitions/models.EventFiltersREST"
                 },
                 "pagination": {
                     "$ref": "#/definitions/models.PaginationResponse"
                 }
             }
         },
-        "models.EventListItem": {
+        "models.EventListItemREST": {
             "type": "object",
             "properties": {
-                "end_datetime": {
+                "block_count": {
+                    "type": "integer"
+                },
+                "event_date": {
                     "type": "string"
                 },
-                "event_title": {
+                "event_name": {
                     "type": "string"
                 },
-                "has_zoom_meeting": {
+                "has_zoom": {
                     "type": "boolean"
+                },
+                "host_count": {
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"
                 },
-                "is_customized": {
-                    "type": "boolean"
+                "length_minutes": {
+                    "type": "integer"
                 },
-                "show_id": {
-                    "type": "string"
-                },
-                "show_name": {
-                    "type": "string"
-                },
-                "start_datetime": {
-                    "type": "string"
+                "show": {
+                    "$ref": "#/definitions/models.ShowSummary"
                 },
                 "status": {
                     "$ref": "#/definitions/models.EventStatus"
                 }
             }
         },
-        "models.EventListRequest": {
-            "type": "object",
-            "properties": {
-                "filters": {
-                    "$ref": "#/definitions/models.EventFilters"
-                },
-                "pagination": {
-                    "$ref": "#/definitions/models.PaginationOptions"
-                },
-                "sort": {
-                    "$ref": "#/definitions/models.EventSortOptions"
-                }
-            }
-        },
-        "models.EventListResponse": {
+        "models.EventListResponseREST": {
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/models.EventListData"
-                },
-                "error": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.EventListDataREST"
                 },
                 "success": {
                     "type": "boolean"
                 }
             }
         },
-        "models.EventSortOptions": {
+        "models.EventResponseREST": {
             "type": "object",
             "properties": {
-                "field": {
-                    "type": "string"
+                "data": {
+                    "$ref": "#/definitions/models.EventDetailREST"
                 },
-                "order": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4367,20 +4258,6 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/models.BlockInfoData"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "models.GetEventInfoResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.EventInfoData"
                 },
                 "error": {
                     "type": "string"
@@ -4648,29 +4525,6 @@
                 }
             }
         },
-        "models.GuestFilters": {
-            "type": "object",
-            "properties": {
-                "created_date_range": {
-                    "$ref": "#/definitions/models.DateRange"
-                },
-                "has_contact_type": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ContactType"
-                    }
-                },
-                "search": {
-                    "type": "string"
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
         "models.GuestInfoData": {
             "type": "object",
             "properties": {
@@ -4717,17 +4571,6 @@
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "models.GuestSortOptions": {
-            "type": "object",
-            "properties": {
-                "field": {
-                    "type": "string"
-                },
-                "order": {
-                    "type": "string"
                 }
             }
         },
@@ -4795,18 +4638,7 @@
             }
         },
         "models.ListGuestsRequest": {
-            "type": "object",
-            "properties": {
-                "filters": {
-                    "$ref": "#/definitions/models.GuestFilters"
-                },
-                "pagination": {
-                    "$ref": "#/definitions/models.PaginationOptions"
-                },
-                "sort": {
-                    "$ref": "#/definitions/models.GuestSortOptions"
-                }
-            }
+            "type": "object"
         },
         "models.ListGuestsResponse": {
             "type": "object",
@@ -4977,151 +4809,6 @@
                     "items": {
                         "$ref": "#/definitions/models.MediaListItem"
                     }
-                }
-            }
-        },
-        "models.MonthDay": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": "string"
-                },
-                "day_number": {
-                    "type": "integer"
-                },
-                "events": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.MonthDayEvent"
-                    }
-                },
-                "events_count": {
-                    "type": "integer"
-                },
-                "is_current_month": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "models.MonthDayEvent": {
-            "type": "object",
-            "properties": {
-                "duration_minutes": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_customized": {
-                    "type": "boolean"
-                },
-                "show_name": {
-                    "type": "string"
-                },
-                "start_time": {
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/models.EventStatus"
-                }
-            }
-        },
-        "models.MonthListData": {
-            "type": "object",
-            "properties": {
-                "events_by_status": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
-                },
-                "month": {
-                    "type": "integer"
-                },
-                "month_name": {
-                    "type": "string"
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "total_events": {
-                    "type": "integer"
-                },
-                "weeks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.MonthWeek"
-                    }
-                },
-                "year": {
-                    "type": "integer"
-                }
-            }
-        },
-        "models.MonthListRequest": {
-            "type": "object",
-            "required": [
-                "month",
-                "year"
-            ],
-            "properties": {
-                "filters": {
-                    "$ref": "#/definitions/models.EventFilters"
-                },
-                "month": {
-                    "type": "integer",
-                    "maximum": 12,
-                    "minimum": 1
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "year": {
-                    "type": "integer",
-                    "maximum": 2030,
-                    "minimum": 2020
-                }
-            }
-        },
-        "models.MonthListResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.MonthListData"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "models.MonthWeek": {
-            "type": "object",
-            "properties": {
-                "days": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.MonthDay"
-                    }
-                },
-                "week_number": {
-                    "type": "integer"
-                }
-            }
-        },
-        "models.PaginationOptions": {
-            "type": "object",
-            "properties": {
-                "limit": {
-                    "type": "integer"
-                },
-                "page": {
-                    "type": "integer"
-                },
-                "sort": {
-                    "type": "string"
                 }
             }
         },
@@ -5877,59 +5564,51 @@
                 }
             }
         },
-        "models.UpdateEventRequest": {
+        "models.UpdateEventRequestREST": {
             "type": "object",
-            "required": [
-                "event_id"
-            ],
             "properties": {
-                "additional_key": {
+                "director": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "event_date": {
                     "type": "string"
                 },
-                "custom_fields": {
-                    "type": "object",
-                    "additionalProperties": true
+                "event_name": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
                 },
-                "event_description": {
+                "event_time": {
                     "type": "string"
                 },
-                "event_id": {
-                    "type": "string"
-                },
-                "event_title": {
-                    "type": "string"
+                "host": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "length_minutes": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 1440,
+                    "minimum": 15
                 },
-                "start_datetime": {
+                "producer": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "telegram": {
                     "type": "string"
                 },
                 "youtube_key": {
                     "type": "string"
                 },
-                "zoom_meeting_id": {
-                    "type": "string"
-                },
                 "zoom_meeting_url": {
                     "type": "string"
-                },
-                "zoom_passcode": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.UpdateEventResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.Event"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
                 }
             }
         },
@@ -6291,103 +5970,6 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/models.TokenVerificationData"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "models.WeekDay": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": "string"
-                },
-                "day_name": {
-                    "type": "string"
-                },
-                "events": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.WeekDayEvent"
-                    }
-                }
-            }
-        },
-        "models.WeekDayEvent": {
-            "type": "object",
-            "properties": {
-                "end_time": {
-                    "type": "string"
-                },
-                "event_title": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_customized": {
-                    "type": "boolean"
-                },
-                "show_name": {
-                    "type": "string"
-                },
-                "start_time": {
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/models.EventStatus"
-                }
-            }
-        },
-        "models.WeekListData": {
-            "type": "object",
-            "properties": {
-                "days": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.WeekDay"
-                    }
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "total_events": {
-                    "type": "integer"
-                },
-                "week_end": {
-                    "type": "string"
-                },
-                "week_start": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.WeekListRequest": {
-            "type": "object",
-            "required": [
-                "week_start"
-            ],
-            "properties": {
-                "filters": {
-                    "$ref": "#/definitions/models.EventFilters"
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "week_start": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.WeekListResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.WeekListData"
-                },
-                "error": {
-                    "type": "string"
                 },
                 "success": {
                     "type": "boolean"
