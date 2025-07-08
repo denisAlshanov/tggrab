@@ -1138,15 +1138,6 @@ definitions:
           $ref: '#/definitions/models.RoleListItem'
         type: array
     type: object
-  models.ListRolesRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.RoleFilters'
-      pagination:
-        $ref: '#/definitions/models.PaginationOptions'
-      sort:
-        $ref: '#/definitions/models.RoleSortOptions'
-    type: object
   models.ListRolesResponse:
     properties:
       data:
@@ -1209,15 +1200,6 @@ definitions:
         items:
           $ref: '#/definitions/models.UserListItem'
         type: array
-    type: object
-  models.ListUsersRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.UserFilters'
-      pagination:
-        $ref: '#/definitions/models.PaginationOptions'
-      sort:
-        $ref: '#/definitions/models.UserSortOptions'
     type: object
   models.ListUsersResponse:
     properties:
@@ -1547,19 +1529,6 @@ definitions:
       role_id:
         type: string
     type: object
-  models.RoleFilters:
-    properties:
-      permissions:
-        items:
-          type: string
-        type: array
-      search:
-        type: string
-      status:
-        items:
-          $ref: '#/definitions/models.RoleStatus'
-        type: array
-    type: object
   models.RoleInfo:
     properties:
       description:
@@ -1585,23 +1554,6 @@ definitions:
         type: array
       status:
         $ref: '#/definitions/models.RoleStatus'
-    type: object
-  models.RoleSortOptions:
-    properties:
-      field:
-        enum:
-        - name
-        - created_at
-        - updated_at
-        type: string
-      order:
-        enum:
-        - asc
-        - desc
-        type: string
-    required:
-    - field
-    - order
     type: object
   models.RoleStatus:
     enum:
@@ -2011,21 +1963,6 @@ definitions:
       user_id:
         type: string
     type: object
-  models.UserFilters:
-    properties:
-      oidc_provider:
-        type: string
-      role_ids:
-        items:
-          type: string
-        type: array
-      search:
-        type: string
-      status:
-        items:
-          $ref: '#/definitions/models.UserStatus'
-        type: array
-    type: object
   models.UserListItem:
     properties:
       created_at:
@@ -2042,25 +1979,6 @@ definitions:
         $ref: '#/definitions/models.UserStatus'
       surname:
         type: string
-    type: object
-  models.UserSortOptions:
-    properties:
-      field:
-        enum:
-        - name
-        - email
-        - created_at
-        - updated_at
-        - last_login_at
-        type: string
-      order:
-        enum:
-        - asc
-        - desc
-        type: string
-    required:
-    - field
-    - order
     type: object
   models.UserStatus:
     enum:
@@ -3686,198 +3604,6 @@ paths:
       summary: Add user to role
       tags:
       - roles
-  /api/v1/roles/add:
-    post:
-      consumes:
-      - application/json
-      description: Create a new role with specified permissions
-      parameters:
-      - description: Role creation data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.CreateRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.CreateRoleResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "409":
-          description: Conflict
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create new role
-      tags:
-      - roles
-  /api/v1/roles/delete:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a role if it has no associated users
-      parameters:
-      - description: Role deletion data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.DeleteRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.DeleteRoleResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "409":
-          description: Conflict
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete role
-      tags:
-      - roles
-  /api/v1/roles/info/{role_id}:
-    get:
-      description: Get detailed information about a specific role including user count
-      parameters:
-      - description: Role ID
-        in: path
-        name: role_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.GetRoleInfoResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get role information
-      tags:
-      - roles
-  /api/v1/roles/list:
-    post:
-      consumes:
-      - application/json
-      description: Get paginated list of roles with filters
-      parameters:
-      - description: List filters and options
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.ListRolesRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ListRolesResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: List roles
-      tags:
-      - roles
-  /api/v1/roles/update:
-    put:
-      consumes:
-      - application/json
-      description: Update existing role details and permissions
-      parameters:
-      - description: Role update data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UpdateRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.UpdateRoleResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update role information
-      tags:
-      - roles
   /api/v1/show/create:
     post:
       consumes:
@@ -4313,193 +4039,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Add role to user
-      tags:
-      - users
-  /api/v1/users/add:
-    post:
-      consumes:
-      - application/json
-      description: Create a new user with password or OIDC authentication
-      parameters:
-      - description: User creation data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.CreateUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.CreateUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "409":
-          description: Conflict
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create new user
-      tags:
-      - users
-  /api/v1/users/delete:
-    delete:
-      consumes:
-      - application/json
-      description: Soft delete a user by setting status to inactive
-      parameters:
-      - description: User deletion data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.DeleteUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.DeleteUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete user
-      tags:
-      - users
-  /api/v1/users/info/{user_id}:
-    get:
-      description: Get detailed information about a specific user including roles
-      parameters:
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.GetUserInfoResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get user information
-      tags:
-      - users
-  /api/v1/users/list:
-    post:
-      consumes:
-      - application/json
-      description: Get paginated list of users with filters
-      parameters:
-      - description: List filters and options
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.ListUsersRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ListUsersResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: List users
-      tags:
-      - users
-  /api/v1/users/update:
-    put:
-      consumes:
-      - application/json
-      description: Update existing user details and roles
-      parameters:
-      - description: User update data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UpdateUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.UpdateUserResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update user information
       tags:
       - users
   /health:

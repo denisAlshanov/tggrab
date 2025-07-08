@@ -125,15 +125,6 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 		// Event-specific block endpoints
 		api.GET("/event/:event_id/blocks", blockHandler.GetEventBlocks) // /api/v1/event/{event_id}/blocks
 
-		// User endpoints (Legacy - deprecated)
-		user := api.Group("/users")
-		{
-			user.POST("/add", userHandler.CreateUser)              // /api/v1/users/add (DEPRECATED)
-			user.DELETE("/delete", userHandler.DeleteUser)         // /api/v1/users/delete (DEPRECATED)
-			user.PUT("/update", userHandler.UpdateUser)            // /api/v1/users/update (DEPRECATED)
-			user.GET("/info/:user_id", userHandler.GetUserInfo)    // /api/v1/users/info/{user_id} (DEPRECATED)
-			user.POST("/list", userHandler.ListUsers)              // /api/v1/users/list (DEPRECATED)
-		}
 
 		// RESTful User endpoints (New)
 		userREST := api.Group("/users")
@@ -147,15 +138,6 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			userREST.DELETE("/:user_id/roles/:role_id", userHandler.RemoveRoleFromUser) // /api/v1/users/{user_id}/roles/{role_id}
 		}
 
-		// Role endpoints (Legacy - deprecated)
-		role := api.Group("/roles")
-		{
-			role.POST("/add", roleHandler.CreateRole)              // /api/v1/roles/add (DEPRECATED)
-			role.DELETE("/delete", roleHandler.DeleteRole)         // /api/v1/roles/delete (DEPRECATED)
-			role.PUT("/update", roleHandler.UpdateRole)            // /api/v1/roles/update (DEPRECATED)
-			role.GET("/info/:role_id", roleHandler.GetRoleInfo)    // /api/v1/roles/info/{role_id} (DEPRECATED)
-			role.POST("/list", roleHandler.ListRoles)              // /api/v1/roles/list (DEPRECATED)
-		}
 
 		// RESTful Role endpoints (New)
 		roleREST := api.Group("/roles")

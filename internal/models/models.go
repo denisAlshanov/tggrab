@@ -1037,17 +1037,6 @@ type CreateUserRequest struct {
 	Password string `json:"password" binding:"required,min=8"`
 }
 
-// CreateUserRequestLegacy represents the legacy request format (for backward compatibility)
-type CreateUserRequestLegacy struct {
-	Name         string                 `json:"name" binding:"required,min=1,max=100"`
-	Surname      string                 `json:"surname" binding:"required,min=1,max=100"`
-	Email        string                 `json:"email" binding:"required,email"`
-	Password     *string                `json:"password,omitempty" binding:"omitempty,min=8"`
-	OIDCProvider *string                `json:"oidc_provider,omitempty"`
-	OIDCSubject  *string                `json:"oidc_subject,omitempty"`
-	RoleIDs      []string               `json:"role_ids,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-}
 
 // CreateUserResponse represents the response after creating a user (simplified)
 type CreateUserResponse struct {
@@ -1062,17 +1051,6 @@ type UpdateUserRequest struct {
 	Email   *string `json:"email,omitempty" binding:"omitempty,email"`
 }
 
-// UpdateUserRequestLegacy represents the legacy request format (for backward compatibility)
-type UpdateUserRequestLegacy struct {
-	UserID   string                 `json:"user_id" binding:"required,uuid"`
-	Name     *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
-	Surname  *string                `json:"surname,omitempty" binding:"omitempty,min=1,max=100"`
-	Email    *string                `json:"email,omitempty" binding:"omitempty,email"`
-	Password *string                `json:"password,omitempty" binding:"omitempty,min=8"`
-	Status   *UserStatus            `json:"status,omitempty"`
-	RoleIDs  []string               `json:"role_ids,omitempty"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-}
 
 // UpdateUserResponse represents the response after updating a user (simplified)
 type UpdateUserResponse struct {
@@ -1085,10 +1063,6 @@ type DeleteUserRequest struct {
 	Force bool `json:"force,omitempty"`
 }
 
-// DeleteUserRequestLegacy represents the legacy request format (for backward compatibility)
-type DeleteUserRequestLegacy struct {
-	UserID string `json:"user_id" binding:"required,uuid"`
-}
 
 // DeleteUserResponse represents the response after deleting a user
 type DeleteUserResponse struct {
@@ -1184,13 +1158,6 @@ type CreateRoleRequest struct {
 	Permissions []string `json:"permissions" binding:"required,min=1"`
 }
 
-// CreateRoleRequestLegacy represents the legacy request format (for backward compatibility)
-type CreateRoleRequestLegacy struct {
-	Name        string                 `json:"name" binding:"required,min=1,max=100"`
-	Description *string                `json:"description,omitempty"`
-	Permissions []string               `json:"permissions" binding:"required,min=1"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-}
 
 // CreateRoleResponse represents the response after creating a role
 type CreateRoleResponse struct {
@@ -1205,15 +1172,6 @@ type UpdateRoleRequest struct {
 	Permissions []string `json:"permissions,omitempty"`
 }
 
-// UpdateRoleRequestLegacy represents the legacy request format (for backward compatibility)
-type UpdateRoleRequestLegacy struct {
-	RoleID      string                 `json:"role_id" binding:"required,uuid"`
-	Name        *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
-	Description *string                `json:"description,omitempty"`
-	Permissions []string               `json:"permissions,omitempty"`
-	Status      *RoleStatus            `json:"status,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-}
 
 // UpdateRoleResponse represents the response after updating a role (simplified)
 type UpdateRoleResponse struct {
@@ -1226,10 +1184,6 @@ type DeleteRoleRequest struct {
 	Force bool `json:"force,omitempty"`
 }
 
-// DeleteRoleRequestLegacy represents the legacy request format (for backward compatibility)
-type DeleteRoleRequestLegacy struct {
-	RoleID string `json:"role_id" binding:"required,uuid"`
-}
 
 // DeleteRoleResponse represents the response after deleting a role
 type DeleteRoleResponse struct {
