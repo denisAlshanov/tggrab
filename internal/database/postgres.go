@@ -3377,12 +3377,11 @@ func (p *PostgresDB) DeleteRole(ctx context.Context, roleID uuid.UUID) error {
 
 // ListRoles retrieves a paginated list of roles with filters
 func (p *PostgresDB) ListRoles(ctx context.Context, filters *models.RoleFilters, sort *models.RoleSortOptions, pagination *models.PaginationOptions) ([]models.RoleListItem, int, error) {
-	// Build base query
+	// Build base query (simplified - no user count for REST API)
 	query := `
 		SELECT r.id, r.name, r.description, r.permissions, r.status, 
-			r.created_at, COUNT(DISTINCT ur.user_id) as user_count
-		FROM roles r
-		LEFT JOIN user_roles ur ON r.id = ur.role_id`
+			r.created_at
+		FROM roles r`
 
 	countQuery := `SELECT COUNT(*) FROM roles r`
 
@@ -3425,8 +3424,7 @@ func (p *PostgresDB) ListRoles(ctx context.Context, filters *models.RoleFilters,
 		return nil, 0, err
 	}
 
-	// Add GROUP BY
-	query += " GROUP BY r.id"
+	// Note: No GROUP BY needed since we're not counting users
 
 	// Add sorting
 	if sort != nil {
@@ -3458,7 +3456,7 @@ func (p *PostgresDB) ListRoles(ctx context.Context, filters *models.RoleFilters,
 		var role models.RoleListItem
 		err := rows.Scan(
 			&role.ID, &role.Name, &role.Description, &role.Permissions,
-			&role.Status, &role.CreatedAt, &role.UserCount,
+			&role.Status, &role.CreatedAt,
 		)
 		if err != nil {
 			return nil, 0, err

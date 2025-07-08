@@ -1167,10 +1167,25 @@ type RemoveRoleFromUserResponse struct {
 	Message string `json:"message"`
 }
 
+// Role-to-User Assignment API Request/Response Models
+
+// AddUserToRoleResponse represents the response after adding a user to a role
+type AddUserToRoleResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
 // Role API Request/Response Models
 
-// CreateRoleRequest represents the request to create a new role
+// CreateRoleRequest represents the request to create a new role (simplified)
 type CreateRoleRequest struct {
+	Name        string   `json:"name" binding:"required,min=1,max=100"`
+	Description string   `json:"description" binding:"required,min=1,max=500"`
+	Permissions []string `json:"permissions" binding:"required,min=1"`
+}
+
+// CreateRoleRequestLegacy represents the legacy request format (for backward compatibility)
+type CreateRoleRequestLegacy struct {
 	Name        string                 `json:"name" binding:"required,min=1,max=100"`
 	Description *string                `json:"description,omitempty"`
 	Permissions []string               `json:"permissions" binding:"required,min=1"`
@@ -1183,8 +1198,15 @@ type CreateRoleResponse struct {
 	Data    *Role `json:"data"`
 }
 
-// UpdateRoleRequest represents the request to update a role
+// UpdateRoleRequest represents the request to update a role (simplified)
 type UpdateRoleRequest struct {
+	Name        *string  `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
+	Description *string  `json:"description,omitempty" binding:"omitempty,min=1,max=500"`
+	Permissions []string `json:"permissions,omitempty"`
+}
+
+// UpdateRoleRequestLegacy represents the legacy request format (for backward compatibility)
+type UpdateRoleRequestLegacy struct {
 	RoleID      string                 `json:"role_id" binding:"required,uuid"`
 	Name        *string                `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
 	Description *string                `json:"description,omitempty"`
@@ -1193,14 +1215,19 @@ type UpdateRoleRequest struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// UpdateRoleResponse represents the response after updating a role
+// UpdateRoleResponse represents the response after updating a role (simplified)
 type UpdateRoleResponse struct {
 	Success bool  `json:"success"`
 	Data    *Role `json:"data"`
 }
 
-// DeleteRoleRequest represents the request to delete a role
+// DeleteRoleRequest represents the request to delete a role (simplified)
 type DeleteRoleRequest struct {
+	Force bool `json:"force,omitempty"`
+}
+
+// DeleteRoleRequestLegacy represents the legacy request format (for backward compatibility)
+type DeleteRoleRequestLegacy struct {
 	RoleID string `json:"role_id" binding:"required,uuid"`
 }
 
@@ -1217,13 +1244,13 @@ type RoleDeleteData struct {
 	DeletedAt time.Time `json:"deleted_at"`
 }
 
-// GetRoleInfoResponse represents the response for getting role information
+// GetRoleInfoResponse represents the response for getting role information (simplified)
 type GetRoleInfoResponse struct {
-	Success bool               `json:"success"`
-	Data    *RoleWithUserCount `json:"data"`
+	Success bool  `json:"success"`
+	Data    *Role `json:"data"`
 }
 
-// ListRolesRequest represents the request to list roles
+// ListRolesRequest represents the request to list roles (legacy format)
 type ListRolesRequest struct {
 	Filters    *RoleFilters      `json:"filters,omitempty"`
 	Sort       *RoleSortOptions  `json:"sort,omitempty"`
@@ -1243,27 +1270,25 @@ type RoleSortOptions struct {
 	Order string `json:"order" binding:"required,oneof=asc desc"`
 }
 
-// ListRolesResponse represents the response for listing roles
+// ListRolesResponse represents the response for listing roles (simplified)
 type ListRolesResponse struct {
 	Success bool           `json:"success"`
 	Data    *ListRolesData `json:"data"`
 }
 
-// ListRolesData contains the list of roles and pagination info
+// ListRolesData contains the list of roles and pagination info (simplified)
 type ListRolesData struct {
 	Roles      []RoleListItem      `json:"roles"`
-	Total      int                 `json:"total"`
 	Pagination *PaginationResponse `json:"pagination"`
 }
 
-// RoleListItem represents a role in the list response
+// RoleListItem represents a role in the list response (simplified)
 type RoleListItem struct {
 	ID          uuid.UUID  `json:"id"`
 	Name        string     `json:"name"`
 	Description *string    `json:"description,omitempty"`
 	Permissions []string   `json:"permissions"`
 	Status      RoleStatus `json:"status"`
-	UserCount   int        `json:"user_count"`
 	CreatedAt   time.Time  `json:"created_at"`
 }
 

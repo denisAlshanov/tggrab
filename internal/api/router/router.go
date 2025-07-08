@@ -147,14 +147,25 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			userREST.DELETE("/:user_id/roles/:role_id", userHandler.RemoveRoleFromUser) // /api/v1/users/{user_id}/roles/{role_id}
 		}
 
-		// Role endpoints
+		// Role endpoints (Legacy - deprecated)
 		role := api.Group("/roles")
 		{
-			role.POST("/add", roleHandler.CreateRole)              // /api/v1/roles/add
-			role.DELETE("/delete", roleHandler.DeleteRole)         // /api/v1/roles/delete
-			role.PUT("/update", roleHandler.UpdateRole)            // /api/v1/roles/update
-			role.GET("/info/:role_id", roleHandler.GetRoleInfo)    // /api/v1/roles/info/{role_id}
-			role.POST("/list", roleHandler.ListRoles)              // /api/v1/roles/list
+			role.POST("/add", roleHandler.CreateRole)              // /api/v1/roles/add (DEPRECATED)
+			role.DELETE("/delete", roleHandler.DeleteRole)         // /api/v1/roles/delete (DEPRECATED)
+			role.PUT("/update", roleHandler.UpdateRole)            // /api/v1/roles/update (DEPRECATED)
+			role.GET("/info/:role_id", roleHandler.GetRoleInfo)    // /api/v1/roles/info/{role_id} (DEPRECATED)
+			role.POST("/list", roleHandler.ListRoles)              // /api/v1/roles/list (DEPRECATED)
+		}
+
+		// RESTful Role endpoints (New)
+		roleREST := api.Group("/roles")
+		{
+			roleREST.POST("", roleHandler.CreateRoleREST)                              // /api/v1/roles
+			roleREST.GET("", roleHandler.ListRolesREST)                                // /api/v1/roles
+			roleREST.GET("/:role_id", roleHandler.GetRoleREST)                         // /api/v1/roles/{role_id}
+			roleREST.PUT("/:role_id", roleHandler.UpdateRoleREST)                      // /api/v1/roles/{role_id}
+			roleREST.DELETE("/:role_id", roleHandler.DeleteRoleREST)                   // /api/v1/roles/{role_id}
+			roleREST.PUT("/:role_id/users/:user_id", roleHandler.AddUserToRole)        // /api/v1/roles/{role_id}/users/{user_id}
 		}
 	}
 
