@@ -412,19 +412,28 @@ definitions:
       success:
         type: boolean
     type: object
-  models.CreateShowRequest:
+  models.CreateShowRequestREST:
     properties:
-      additional_key:
+      default_director:
+        items:
+          type: string
+        type: array
+      default_host:
+        items:
+          type: string
+        type: array
+      default_producer:
+        items:
+          type: string
+        type: array
+      default_telegram:
         type: string
       first_event_date:
         type: string
       length_minutes:
         maximum: 1440
-        minimum: 1
+        minimum: 15
         type: integer
-      metadata:
-        additionalProperties: true
-        type: object
       repeat_pattern:
         $ref: '#/definitions/models.RepeatPattern'
       scheduling_config:
@@ -437,28 +446,14 @@ definitions:
         type: string
       youtube_key:
         type: string
-      zoom_meeting_id:
-        type: string
       zoom_meeting_url:
-        type: string
-      zoom_passcode:
         type: string
     required:
     - first_event_date
-    - length_minutes
     - repeat_pattern
     - show_name
     - start_time
     - youtube_key
-    type: object
-  models.CreateShowResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.Show'
-      error:
-        type: string
-      success:
-        type: boolean
     type: object
   models.CreateUserRequest:
     properties:
@@ -592,17 +587,15 @@ definitions:
       success:
         type: boolean
     type: object
-  models.DeleteShowRequest:
+  models.DeleteShowRequestREST:
     properties:
-      show_id:
-        type: string
-    required:
-    - show_id
+      force:
+        type: boolean
     type: object
-  models.DeleteShowResponse:
+  models.DeleteShowResponseREST:
     properties:
-      error:
-        type: string
+      data:
+        $ref: '#/definitions/models.ShowDeleteDataREST'
       message:
         type: string
       success:
@@ -888,15 +881,6 @@ definitions:
       success:
         type: boolean
     type: object
-  models.GetShowInfoResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.ShowInfoData'
-      error:
-        type: string
-      success:
-        type: boolean
-    type: object
   models.GetUserInfoResponse:
     properties:
       data:
@@ -1144,53 +1128,6 @@ definitions:
         $ref: '#/definitions/models.ListRolesData'
       success:
         type: boolean
-    type: object
-  models.ListShowsData:
-    properties:
-      pagination:
-        $ref: '#/definitions/models.PaginationResponse'
-      shows:
-        items:
-          $ref: '#/definitions/models.ShowListItem'
-        type: array
-    type: object
-  models.ListShowsFilters:
-    properties:
-      repeat_pattern:
-        items:
-          $ref: '#/definitions/models.RepeatPattern'
-        type: array
-      search:
-        type: string
-      status:
-        items:
-          $ref: '#/definitions/models.ShowStatus'
-        type: array
-    type: object
-  models.ListShowsRequest:
-    properties:
-      filters:
-        $ref: '#/definitions/models.ListShowsFilters'
-      pagination:
-        $ref: '#/definitions/models.PaginationOptions'
-      sort:
-        $ref: '#/definitions/models.ListShowsSortOptions'
-    type: object
-  models.ListShowsResponse:
-    properties:
-      data:
-        $ref: '#/definitions/models.ListShowsData'
-      error:
-        type: string
-      success:
-        type: boolean
-    type: object
-  models.ListShowsSortOptions:
-    properties:
-      field:
-        type: string
-      order:
-        type: string
     type: object
   models.ListUsersData:
     properties:
@@ -1622,6 +1559,20 @@ definitions:
         type: string
       created_at:
         type: string
+      default_director:
+        items:
+          type: string
+        type: array
+      default_host:
+        items:
+          type: string
+        type: array
+      default_producer:
+        items:
+          type: string
+        type: array
+      default_telegram:
+        type: string
       first_event_date:
         type: string
       id:
@@ -1656,40 +1607,41 @@ definitions:
       zoom_passcode:
         type: string
     type: object
-  models.ShowEvent:
+  models.ShowDeleteDataREST:
     properties:
-      date:
+      deleted_at:
         type: string
-      end_datetime:
-        type: string
-      start_datetime:
+      show_id:
         type: string
     type: object
-  models.ShowInfoData:
+  models.ShowDetailREST:
     properties:
-      show:
-        $ref: '#/definitions/models.Show'
-      upcoming_events:
+      created_at:
+        type: string
+      default_director:
         items:
-          $ref: '#/definitions/models.ShowEvent'
+          $ref: '#/definitions/models.UserSummary'
         type: array
-    type: object
-  models.ShowListItem:
-    properties:
+      default_host:
+        items:
+          $ref: '#/definitions/models.UserSummary'
+        type: array
+      default_producer:
+        items:
+          $ref: '#/definitions/models.UserSummary'
+        type: array
+      default_telegram:
+        type: string
+      event_count:
+        type: integer
       first_event_date:
         type: string
-      has_zoom_meeting:
-        type: boolean
       id:
         type: string
       length_minutes:
         type: integer
-      next_occurrence:
-        type: string
-      next_occurrences:
-        items:
-          type: string
-        type: array
+      next_event:
+        $ref: '#/definitions/models.ShowEventSummary'
       repeat_pattern:
         $ref: '#/definitions/models.RepeatPattern'
       scheduling_config:
@@ -1700,6 +1652,76 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/models.ShowStatus'
+      updated_at:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_url:
+        type: string
+    type: object
+  models.ShowDetailResponseREST:
+    properties:
+      data:
+        $ref: '#/definitions/models.ShowDetailREST'
+      success:
+        type: boolean
+    type: object
+  models.ShowEventSummary:
+    properties:
+      date:
+        type: string
+      id:
+        type: string
+      status:
+        $ref: '#/definitions/models.EventStatus'
+    type: object
+  models.ShowListDataREST:
+    properties:
+      pagination:
+        $ref: '#/definitions/models.PaginationResponse'
+      shows:
+        items:
+          $ref: '#/definitions/models.ShowListItemREST'
+        type: array
+    type: object
+  models.ShowListItemREST:
+    properties:
+      created_at:
+        type: string
+      default_director_count:
+        type: integer
+      default_host_count:
+        type: integer
+      default_producer_count:
+        type: integer
+      event_count:
+        type: integer
+      has_telegram:
+        type: boolean
+      id:
+        type: string
+      next_event_date:
+        type: string
+      repeat_pattern:
+        $ref: '#/definitions/models.RepeatPattern'
+      show_name:
+        type: string
+      status:
+        $ref: '#/definitions/models.ShowStatus'
+    type: object
+  models.ShowListResponseREST:
+    properties:
+      data:
+        $ref: '#/definitions/models.ShowListDataREST'
+      success:
+        type: boolean
+    type: object
+  models.ShowResponseREST:
+    properties:
+      data:
+        $ref: '#/definitions/models.Show'
+      success:
+        type: boolean
     type: object
   models.ShowStatus:
     enum:
@@ -1910,6 +1932,41 @@ definitions:
       success:
         type: boolean
     type: object
+  models.UpdateShowRequestREST:
+    properties:
+      default_director:
+        items:
+          type: string
+        type: array
+      default_host:
+        items:
+          type: string
+        type: array
+      default_producer:
+        items:
+          type: string
+        type: array
+      default_telegram:
+        type: string
+      length_minutes:
+        maximum: 1440
+        minimum: 15
+        type: integer
+      repeat_pattern:
+        $ref: '#/definitions/models.RepeatPattern'
+      scheduling_config:
+        $ref: '#/definitions/models.SchedulingConfig'
+      show_name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      start_time:
+        type: string
+      youtube_key:
+        type: string
+      zoom_meeting_url:
+        type: string
+    type: object
   models.UpdateUserRequest:
     properties:
       email:
@@ -1992,6 +2049,15 @@ definitions:
     - UserStatusInactive
     - UserStatusPending
     - UserStatusSuspended
+  models.UserSummary:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   models.UserWithRoles:
     properties:
       created_at:
@@ -3604,26 +3670,43 @@ paths:
       summary: Add user to role
       tags:
       - roles
-  /api/v1/show/create:
-    post:
-      consumes:
-      - application/json
-      description: Create a new show with YouTube and Zoom integration for recurring
-        streams
+  /api/v1/shows:
+    get:
+      description: Get paginated list of shows with query parameters
       parameters:
-      - description: Show details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.CreateShowRequest'
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Search by show name
+        in: query
+        name: search
+        type: string
+      - description: Sort field
+        in: query
+        name: sort
+        type: string
+      - description: Sort order (asc/desc)
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.CreateShowResponse'
+            $ref: '#/definitions/models.ShowListResponseREST'
         "400":
           description: Bad Request
           schema:
@@ -3636,28 +3719,72 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Create a new show
+      summary: List shows (RESTful)
       tags:
       - shows
-  /api/v1/show/delete:
-    delete:
+    post:
       consumes:
       - application/json
-      description: Soft delete a show by setting its status to cancelled
+      description: Create a new show with simplified request format and default staff
+        assignments
       parameters:
-      - description: Show ID to delete
+      - description: Show creation data
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/models.DeleteShowRequest'
+          $ref: '#/definitions/models.CreateShowRequestREST'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.DeleteShowResponse'
+            $ref: '#/definitions/models.ShowResponseREST'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create new show (RESTful)
+      tags:
+      - shows
+  /api/v1/shows/{show_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft or hard delete a show based on force parameter
+      parameters:
+      - description: Show ID
+        in: path
+        name: show_id
+        required: true
+        type: string
+      - description: Show deletion data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeleteShowRequestREST'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DeleteShowResponseREST'
         "400":
           description: Bad Request
           schema:
@@ -3675,13 +3802,11 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Delete a show
+      summary: Delete show (RESTful)
       tags:
       - shows
-  /api/v1/show/info/{show_id}:
     get:
-      description: Get detailed information about a specific show including upcoming
-        events
+      description: Get detailed information about a specific show with user details
       parameters:
       - description: Show ID
         in: path
@@ -3694,7 +3819,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.GetShowInfoResponse'
+            $ref: '#/definitions/models.ShowDetailResponseREST'
         "400":
           description: Bad Request
           schema:
@@ -3712,29 +3837,39 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Get show information
+      summary: Get show information (RESTful)
       tags:
       - shows
-  /api/v1/show/list:
-    post:
+    put:
       consumes:
       - application/json
-      description: Get a paginated list of shows with filtering and sorting options
+      description: Update existing show details with simplified request format
       parameters:
-      - description: List options
+      - description: Show ID
+        in: path
+        name: show_id
+        required: true
+        type: string
+      - description: Show update data
         in: body
         name: request
+        required: true
         schema:
-          $ref: '#/definitions/models.ListShowsRequest'
+          $ref: '#/definitions/models.UpdateShowRequestREST'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.ListShowsResponse'
+            $ref: '#/definitions/models.ShowResponseREST'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
           schema:
             additionalProperties: true
             type: object
@@ -3745,7 +3880,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: List shows
+      summary: Update show information (RESTful)
       tags:
       - shows
   /api/v1/users:

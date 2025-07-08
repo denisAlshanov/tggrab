@@ -200,6 +200,10 @@ type Show struct {
 	FirstEventDate   time.Time              `json:"first_event_date" db:"first_event_date"`
 	RepeatPattern    RepeatPattern          `json:"repeat_pattern" db:"repeat_pattern"`
 	SchedulingConfig *SchedulingConfig      `json:"scheduling_config,omitempty" db:"scheduling_config"`
+	DefaultHost      []uuid.UUID            `json:"default_host" db:"default_host"`
+	DefaultDirector  []uuid.UUID            `json:"default_director" db:"default_director"`
+	DefaultProducer  []uuid.UUID            `json:"default_producer" db:"default_producer"`
+	DefaultTelegram  *string                `json:"default_telegram,omitempty" db:"default_telegram"`
 	Version          int                    `json:"version" db:"version"`
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
@@ -208,79 +212,6 @@ type Show struct {
 	Metadata         map[string]interface{} `json:"metadata,omitempty" db:"metadata"`
 }
 
-// Show request/response types
-type CreateShowRequest struct {
-	ShowName         string                 `json:"show_name" binding:"required,min=1,max=255"`
-	YouTubeKey       string                 `json:"youtube_key" binding:"required"`
-	AdditionalKey    *string                `json:"additional_key,omitempty"`
-	ZoomMeetingURL   *string                `json:"zoom_meeting_url,omitempty"`
-	ZoomMeetingID    *string                `json:"zoom_meeting_id,omitempty"`
-	ZoomPasscode     *string                `json:"zoom_passcode,omitempty"`
-	StartTime        string                 `json:"start_time" binding:"required"`
-	LengthMinutes    int                    `json:"length_minutes" binding:"required,min=1,max=1440"`
-	FirstEventDate   string                 `json:"first_event_date" binding:"required"`
-	RepeatPattern    RepeatPattern          `json:"repeat_pattern" binding:"required"`
-	SchedulingConfig *SchedulingConfig      `json:"scheduling_config,omitempty"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
-}
-
-type CreateShowResponse struct {
-	Success bool   `json:"success"`
-	Data    *Show  `json:"data,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-type DeleteShowRequest struct {
-	ShowID string `json:"show_id" binding:"required,uuid"`
-}
-
-type DeleteShowResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-type ListShowsRequest struct {
-	Filters    ListShowsFilters    `json:"filters,omitempty"`
-	Pagination PaginationOptions   `json:"pagination,omitempty"`
-	Sort       ListShowsSortOptions `json:"sort,omitempty"`
-}
-
-type ListShowsFilters struct {
-	Status        []ShowStatus    `json:"status,omitempty"`
-	RepeatPattern []RepeatPattern `json:"repeat_pattern,omitempty"`
-	Search        string          `json:"search,omitempty"`
-}
-
-type ListShowsSortOptions struct {
-	Field string `json:"field,omitempty"`
-	Order string `json:"order,omitempty"`
-}
-
-type ShowListItem struct {
-	ID               uuid.UUID         `json:"id"`
-	ShowName         string            `json:"show_name"`
-	StartTime        time.Time         `json:"start_time"`
-	LengthMinutes    int               `json:"length_minutes"`
-	FirstEventDate   time.Time         `json:"first_event_date"`
-	RepeatPattern    RepeatPattern     `json:"repeat_pattern"`
-	SchedulingConfig *SchedulingConfig `json:"scheduling_config,omitempty"`
-	Status           ShowStatus        `json:"status"`
-	HasZoomMeeting   bool              `json:"has_zoom_meeting"`
-	NextOccurrence   *time.Time        `json:"next_occurrence,omitempty"`
-	NextOccurrences  []time.Time       `json:"next_occurrences,omitempty"`
-}
-
-type ListShowsResponse struct {
-	Success    bool                  `json:"success"`
-	Data       *ListShowsData        `json:"data,omitempty"`
-	Error      string                `json:"error,omitempty"`
-}
-
-type ListShowsData struct {
-	Shows      []ShowListItem     `json:"shows"`
-	Pagination PaginationResponse `json:"pagination"`
-}
 
 type PaginationResponse struct {
 	Page       int `json:"page"`
@@ -289,22 +220,132 @@ type PaginationResponse struct {
 	TotalPages int `json:"total_pages"`
 }
 
-type GetShowInfoResponse struct {
-	Success bool              `json:"success"`
-	Data    *ShowInfoData     `json:"data,omitempty"`
-	Error   string            `json:"error,omitempty"`
+// RESTful Show Management Models
+
+// CreateShowRequestREST represents the simplified RESTful request format for creating shows
+type CreateShowRequestREST struct {
+	ShowName         string            `json:"show_name" binding:"required,min=1,max=255"`
+	FirstEventDate   string            `json:"first_event_date" binding:"required"`
+	StartTime        string            `json:"start_time" binding:"required"`
+	LengthMinutes    int               `json:"length_minutes" binding:"min=15,max=1440"`
+	RepeatPattern    RepeatPattern     `json:"repeat_pattern" binding:"required"`
+	SchedulingConfig *SchedulingConfig `json:"scheduling_config,omitempty"`
+	YouTubeKey       string            `json:"youtube_key" binding:"required"`
+	ZoomMeetingURL   *string           `json:"zoom_meeting_url,omitempty"`
+	DefaultHost      []string          `json:"default_host,omitempty"`
+	DefaultDirector  []string          `json:"default_director,omitempty"`
+	DefaultProducer  []string          `json:"default_producer,omitempty"`
+	DefaultTelegram  *string           `json:"default_telegram,omitempty"`
 }
 
-type ShowInfoData struct {
-	Show           *Show         `json:"show"`
-	UpcomingEvents []ShowEvent   `json:"upcoming_events"`
+// UpdateShowRequestREST represents the simplified RESTful request format for updating shows
+type UpdateShowRequestREST struct {
+	ShowName         *string           `json:"show_name,omitempty" binding:"omitempty,min=1,max=255"`
+	StartTime        *string           `json:"start_time,omitempty"`
+	LengthMinutes    *int              `json:"length_minutes,omitempty" binding:"omitempty,min=15,max=1440"`
+	RepeatPattern    *RepeatPattern    `json:"repeat_pattern,omitempty"`
+	SchedulingConfig *SchedulingConfig `json:"scheduling_config,omitempty"`
+	YouTubeKey       *string           `json:"youtube_key,omitempty"`
+	ZoomMeetingURL   *string           `json:"zoom_meeting_url,omitempty"`
+	DefaultHost      []string          `json:"default_host,omitempty"`
+	DefaultDirector  []string          `json:"default_director,omitempty"`
+	DefaultProducer  []string          `json:"default_producer,omitempty"`
+	DefaultTelegram  *string           `json:"default_telegram,omitempty"`
 }
 
-type ShowEvent struct {
-	Date          string    `json:"date"`
-	StartDateTime time.Time `json:"start_datetime"`
-	EndDateTime   time.Time `json:"end_datetime"`
+// DeleteShowRequestREST represents the simplified RESTful request format for deleting shows
+type DeleteShowRequestREST struct {
+	Force bool `json:"force,omitempty"`
 }
+
+// ShowResponseREST represents the response format for show operations
+type ShowResponseREST struct {
+	Success bool  `json:"success"`
+	Data    *Show `json:"data"`
+}
+
+// ShowListItemREST represents a show item in list responses with enhanced information
+type ShowListItemREST struct {
+	ID                    uuid.UUID     `json:"id"`
+	ShowName              string        `json:"show_name"`
+	RepeatPattern         RepeatPattern `json:"repeat_pattern"`
+	NextEventDate         *string       `json:"next_event_date,omitempty"`
+	EventCount            int           `json:"event_count"`
+	Status                ShowStatus    `json:"status"`
+	DefaultHostCount      int           `json:"default_host_count"`
+	DefaultDirectorCount  int           `json:"default_director_count"`
+	DefaultProducerCount  int           `json:"default_producer_count"`
+	HasTelegram           bool          `json:"has_telegram"`
+	CreatedAt             time.Time     `json:"created_at"`
+}
+
+// ShowListResponseREST represents the response for listing shows
+type ShowListResponseREST struct {
+	Success bool               `json:"success"`
+	Data    *ShowListDataREST  `json:"data"`
+}
+
+// ShowListDataREST contains the shows list and pagination info
+type ShowListDataREST struct {
+	Shows      []ShowListItemREST `json:"shows"`
+	Pagination *PaginationResponse `json:"pagination"`
+}
+
+// ShowDetailREST represents detailed show information with populated user details
+type ShowDetailREST struct {
+	ID               uuid.UUID         `json:"id"`
+	ShowName         string            `json:"show_name"`
+	FirstEventDate   string            `json:"first_event_date"`
+	StartTime        string            `json:"start_time"`
+	LengthMinutes    int               `json:"length_minutes"`
+	RepeatPattern    RepeatPattern     `json:"repeat_pattern"`
+	SchedulingConfig *SchedulingConfig `json:"scheduling_config,omitempty"`
+	YouTubeKey       string            `json:"youtube_key"`
+	ZoomMeetingURL   *string           `json:"zoom_meeting_url,omitempty"`
+	DefaultHost      []UserSummary     `json:"default_host"`
+	DefaultDirector  []UserSummary     `json:"default_director"`
+	DefaultProducer  []UserSummary     `json:"default_producer"`
+	DefaultTelegram  *string           `json:"default_telegram,omitempty"`
+	Status           ShowStatus        `json:"status"`
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
+	EventCount       int               `json:"event_count"`
+	NextEvent        *ShowEventSummary `json:"next_event,omitempty"`
+}
+
+// UserSummary represents basic user information for show assignments
+type UserSummary struct {
+	ID    uuid.UUID `json:"id"`
+	Name  string    `json:"name"`
+	Email string    `json:"email"`
+}
+
+// ShowEventSummary represents basic event information for show details
+type ShowEventSummary struct {
+	ID     uuid.UUID   `json:"id"`
+	Date   string      `json:"date"`
+	Status EventStatus `json:"status"`
+}
+
+// ShowDetailResponseREST represents the response for getting show details
+type ShowDetailResponseREST struct {
+	Success bool            `json:"success"`
+	Data    *ShowDetailREST `json:"data"`
+}
+
+// DeleteShowResponseREST represents the response for deleting shows
+type DeleteShowResponseREST struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    *ShowDeleteDataREST `json:"data"`
+}
+
+// ShowDeleteDataREST contains information about the deleted show
+type ShowDeleteDataREST struct {
+	ShowID    string    `json:"show_id"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
 
 // Calendar Event System Models
 

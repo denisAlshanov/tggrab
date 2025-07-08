@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
@@ -1294,14 +1295,16 @@ func (p *PostgresDB) CreateShow(ctx context.Context, show *models.Show) error {
 	query := `
 		INSERT INTO shows (id, show_name, youtube_key, additional_key, zoom_meeting_url, 
 			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
-			repeat_pattern, scheduling_config, created_at, updated_at, status, user_id, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+			repeat_pattern, scheduling_config, default_host, default_director, default_producer, 
+			default_telegram, created_at, updated_at, status, user_id, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id, created_at, updated_at`
 
 	err = p.pool.QueryRow(ctx, query,
 		show.ID, show.ShowName, show.YouTubeKey, show.AdditionalKey, show.ZoomMeetingURL,
 		show.ZoomMeetingID, show.ZoomPasscode, show.StartTime, show.LengthMinutes, show.FirstEventDate,
-		show.RepeatPattern, schedulingConfigJSON, show.CreatedAt, show.UpdatedAt, show.Status, show.UserID, metadataJSON,
+		show.RepeatPattern, schedulingConfigJSON, show.DefaultHost, show.DefaultDirector, show.DefaultProducer,
+		show.DefaultTelegram, show.CreatedAt, show.UpdatedAt, show.Status, show.UserID, metadataJSON,
 	).Scan(&show.ID, &show.CreatedAt, &show.UpdatedAt)
 
 	return err
@@ -1315,13 +1318,15 @@ func (p *PostgresDB) GetShowByID(ctx context.Context, showID uuid.UUID) (*models
 	query := `
 		SELECT id, show_name, youtube_key, additional_key, zoom_meeting_url, 
 			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
-			repeat_pattern, scheduling_config, created_at, updated_at, status, user_id, metadata
+			repeat_pattern, scheduling_config, default_host, default_director, default_producer, 
+			default_telegram, created_at, updated_at, status, user_id, metadata
 		FROM shows WHERE id = $1`
 
 	err := p.pool.QueryRow(ctx, query, showID).Scan(
 		&show.ID, &show.ShowName, &show.YouTubeKey, &show.AdditionalKey, &show.ZoomMeetingURL,
 		&show.ZoomMeetingID, &show.ZoomPasscode, &show.StartTime, &show.LengthMinutes, &show.FirstEventDate,
-		&show.RepeatPattern, &schedulingConfigJSON, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
+		&show.RepeatPattern, &schedulingConfigJSON, &show.DefaultHost, &show.DefaultDirector, &show.DefaultProducer,
+		&show.DefaultTelegram, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -1349,11 +1354,20 @@ func (p *PostgresDB) GetShowByID(ctx context.Context, showID uuid.UUID) (*models
 	return show, nil
 }
 
-func (p *PostgresDB) DeleteShow(ctx context.Context, showID uuid.UUID) error {
-	// Soft delete by updating status
-	query := `UPDATE shows SET status = $2 WHERE id = $1`
+func (p *PostgresDB) DeleteShow(ctx context.Context, showID uuid.UUID, force bool) error {
+	var query string
+	var result pgconn.CommandTag
+	var err error
 	
-	result, err := p.pool.Exec(ctx, query, showID, models.ShowStatusCancelled)
+	if force {
+		// Hard delete (permanent removal)
+		query = `DELETE FROM shows WHERE id = $1`
+		result, err = p.pool.Exec(ctx, query, showID)
+	} else {
+		// Soft delete by updating status
+		query = `UPDATE shows SET status = $2 WHERE id = $1`
+		result, err = p.pool.Exec(ctx, query, showID, models.ShowStatusCancelled)
+	}
 	if err != nil {
 		return err
 	}
@@ -1366,131 +1380,6 @@ func (p *PostgresDB) DeleteShow(ctx context.Context, showID uuid.UUID) error {
 	return nil
 }
 
-func (p *PostgresDB) ListShows(ctx context.Context, userID uuid.UUID, filters models.ListShowsFilters, pagination models.PaginationOptions, sort models.ListShowsSortOptions) ([]models.Show, int, error) {
-	// Set defaults
-	if pagination.Limit <= 0 {
-		pagination.Limit = 20
-	}
-	if pagination.Page <= 0 {
-		pagination.Page = 1
-	}
-	offset := (pagination.Page - 1) * pagination.Limit
-
-	// Build where clause
-	whereConditions := []string{"user_id = $1"}
-	args := []interface{}{userID}
-	argCount := 1
-
-	// Status filter
-	if len(filters.Status) > 0 {
-		argCount++
-		statusPlaceholders := make([]string, len(filters.Status))
-		for i, status := range filters.Status {
-			argCount++
-			statusPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, status)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("status IN (%s)", strings.Join(statusPlaceholders, ",")))
-	}
-
-	// Repeat pattern filter
-	if len(filters.RepeatPattern) > 0 {
-		repeatPlaceholders := make([]string, len(filters.RepeatPattern))
-		for i, pattern := range filters.RepeatPattern {
-			argCount++
-			repeatPlaceholders[i] = fmt.Sprintf("$%d", argCount)
-			args = append(args, pattern)
-		}
-		whereConditions = append(whereConditions, fmt.Sprintf("repeat_pattern IN (%s)", strings.Join(repeatPlaceholders, ",")))
-	}
-
-	// Search filter
-	if filters.Search != "" {
-		argCount++
-		whereConditions = append(whereConditions, fmt.Sprintf("LOWER(show_name) LIKE LOWER($%d)", argCount))
-		args = append(args, "%"+filters.Search+"%")
-	}
-
-	whereClause := strings.Join(whereConditions, " AND ")
-
-	// Count total
-	var total int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM shows WHERE %s", whereClause)
-	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
-	// Build order by clause
-	orderBy := "created_at DESC" // default
-	if sort.Field != "" {
-		allowedFields := map[string]bool{
-			"show_name":        true,
-			"first_event_date": true,
-			"created_at":       true,
-			"updated_at":       true,
-		}
-		if allowedFields[sort.Field] {
-			order := "ASC"
-			if strings.ToUpper(sort.Order) == "DESC" {
-				order = "DESC"
-			}
-			orderBy = fmt.Sprintf("%s %s", sort.Field, order)
-		}
-	}
-
-	// Get shows
-	query := fmt.Sprintf(`
-		SELECT id, show_name, youtube_key, additional_key, zoom_meeting_url, 
-			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
-			repeat_pattern, scheduling_config, created_at, updated_at, status, user_id, metadata
-		FROM shows 
-		WHERE %s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
-
-	args = append(args, pagination.Limit, offset)
-
-	rows, err := p.pool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var shows []models.Show
-	for rows.Next() {
-		var show models.Show
-		var metadataJSON []byte
-		var schedulingConfigJSON []byte
-
-		err := rows.Scan(
-			&show.ID, &show.ShowName, &show.YouTubeKey, &show.AdditionalKey, &show.ZoomMeetingURL,
-			&show.ZoomMeetingID, &show.ZoomPasscode, &show.StartTime, &show.LengthMinutes, &show.FirstEventDate,
-			&show.RepeatPattern, &schedulingConfigJSON, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
-		)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		// Unmarshal metadata if present
-		if len(metadataJSON) > 0 {
-			if err := json.Unmarshal(metadataJSON, &show.Metadata); err != nil {
-				return nil, 0, fmt.Errorf("failed to unmarshal metadata: %w", err)
-			}
-		}
-
-		// Unmarshal scheduling config if present
-		if len(schedulingConfigJSON) > 0 {
-			show.SchedulingConfig = &models.SchedulingConfig{}
-			if err := json.Unmarshal(schedulingConfigJSON, show.SchedulingConfig); err != nil {
-				return nil, 0, fmt.Errorf("failed to unmarshal scheduling config: %w", err)
-			}
-		}
-
-		shows = append(shows, show)
-	}
-
-	return shows, total, nil
-}
 
 func (p *PostgresDB) UpdateShow(ctx context.Context, show *models.Show) error {
 	// Convert metadata to JSON
@@ -1510,15 +1399,46 @@ func (p *PostgresDB) UpdateShow(ctx context.Context, show *models.Show) error {
 
 	query := `
 		UPDATE shows SET 
-			show_name = $2, youtube_key = $3, additional_key = $4, zoom_meeting_url = $5,
-			zoom_meeting_id = $6, zoom_passcode = $7, start_time = $8, length_minutes = $9,
-			first_event_date = $10, repeat_pattern = $11, scheduling_config = $12, status = $13, metadata = $14
+			show_name = COALESCE($2, show_name), 
+			youtube_key = COALESCE($3, youtube_key), 
+			additional_key = COALESCE($4, additional_key), 
+			zoom_meeting_url = COALESCE($5, zoom_meeting_url),
+			zoom_meeting_id = COALESCE($6, zoom_meeting_id), 
+			zoom_passcode = COALESCE($7, zoom_passcode), 
+			start_time = COALESCE($8, start_time), 
+			length_minutes = COALESCE($9, length_minutes),
+			first_event_date = COALESCE($10, first_event_date), 
+			repeat_pattern = COALESCE($11, repeat_pattern), 
+			scheduling_config = COALESCE($12, scheduling_config),
+			default_host = COALESCE($13, default_host),
+			default_director = COALESCE($14, default_director),
+			default_producer = COALESCE($15, default_producer),
+			default_telegram = COALESCE($16, default_telegram),
+			status = COALESCE($17, status), 
+			metadata = COALESCE($18, metadata),
+			updated_at = $19
 		WHERE id = $1`
 
 	_, err = p.pool.Exec(ctx, query,
-		show.ID, show.ShowName, show.YouTubeKey, show.AdditionalKey, show.ZoomMeetingURL,
-		show.ZoomMeetingID, show.ZoomPasscode, show.StartTime, show.LengthMinutes,
-		show.FirstEventDate, show.RepeatPattern, schedulingConfigJSON, show.Status, metadataJSON,
+		show.ID, 
+		nullStringIfEmpty(show.ShowName), 
+		nullStringIfEmpty(show.YouTubeKey), 
+		show.AdditionalKey, 
+		show.ZoomMeetingURL,
+		show.ZoomMeetingID, 
+		show.ZoomPasscode, 
+		nullTimeIfZero(show.StartTime), 
+		nullIntIfZero(show.LengthMinutes),
+		nullTimeIfZero(show.FirstEventDate), 
+		nullStringIfEmpty(string(show.RepeatPattern)), 
+		schedulingConfigJSON,
+		show.DefaultHost,
+		show.DefaultDirector,
+		show.DefaultProducer,
+		show.DefaultTelegram,
+		nullStringIfEmpty(string(show.Status)), 
+		metadataJSON,
+		time.Now(),
 	)
 	return err
 }
@@ -2097,6 +2017,110 @@ func (p *PostgresDB) GetActiveShows(ctx context.Context) ([]models.Show, error) 
 	}
 
 	return shows, nil
+}
+
+// ListShowsREST returns paginated shows for a user with basic filtering and sorting
+func (p *PostgresDB) ListShowsREST(ctx context.Context, userID uuid.UUID, search string, status models.ShowStatus, sortField, sortOrder string, limit, offset int) ([]models.Show, int, error) {
+	// Build where clause
+	whereConditions := []string{"user_id = $1"}
+	args := []interface{}{userID}
+	argCount := 1
+
+	// Add search filter
+	if search != "" {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("LOWER(show_name) LIKE LOWER($%d)", argCount))
+		args = append(args, "%"+search+"%")
+	}
+
+	// Add status filter
+	if status != "" {
+		argCount++
+		whereConditions = append(whereConditions, fmt.Sprintf("status = $%d", argCount))
+		args = append(args, status)
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM shows WHERE %s", whereClause)
+	if err := p.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build order by clause
+	orderBy := "created_at DESC" // default
+	if sortField != "" {
+		allowedFields := map[string]bool{
+			"show_name":        true,
+			"first_event_date": true,
+			"created_at":       true,
+			"updated_at":       true,
+		}
+		if allowedFields[sortField] {
+			order := "ASC"
+			if strings.ToUpper(sortOrder) == "DESC" {
+				order = "DESC"
+			}
+			orderBy = fmt.Sprintf("%s %s", sortField, order)
+		}
+	}
+
+	// Get shows
+	query := fmt.Sprintf(`
+		SELECT id, show_name, youtube_key, additional_key, zoom_meeting_url, 
+			zoom_meeting_id, zoom_passcode, start_time, length_minutes, first_event_date, 
+			repeat_pattern, scheduling_config, default_host, default_director, default_producer, 
+			default_telegram, created_at, updated_at, status, user_id, metadata
+		FROM shows 
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argCount+1, argCount+2)
+
+	args = append(args, limit, offset)
+
+	rows, err := p.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var shows []models.Show
+	for rows.Next() {
+		var show models.Show
+		var metadataJSON []byte
+		var schedulingConfigJSON []byte
+
+		err := rows.Scan(
+			&show.ID, &show.ShowName, &show.YouTubeKey, &show.AdditionalKey, &show.ZoomMeetingURL,
+			&show.ZoomMeetingID, &show.ZoomPasscode, &show.StartTime, &show.LengthMinutes, &show.FirstEventDate,
+			&show.RepeatPattern, &schedulingConfigJSON, &show.DefaultHost, &show.DefaultDirector, &show.DefaultProducer,
+			&show.DefaultTelegram, &show.CreatedAt, &show.UpdatedAt, &show.Status, &show.UserID, &metadataJSON,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Unmarshal metadata if present
+		if len(metadataJSON) > 0 {
+			if err := json.Unmarshal(metadataJSON, &show.Metadata); err != nil {
+				return nil, 0, fmt.Errorf("failed to unmarshal metadata: %w", err)
+			}
+		}
+
+		// Unmarshal scheduling config if present
+		if len(schedulingConfigJSON) > 0 {
+			show.SchedulingConfig = &models.SchedulingConfig{}
+			if err := json.Unmarshal(schedulingConfigJSON, show.SchedulingConfig); err != nil {
+				return nil, 0, fmt.Errorf("failed to unmarshal scheduling config: %w", err)
+			}
+		}
+
+		shows = append(shows, show)
+	}
+
+	return shows, total, nil
 }
 
 // Guest operations
@@ -3791,4 +3815,30 @@ func (p *PostgresDB) CleanupExpiredAuthData(ctx context.Context) error {
 	query := `SELECT cleanup_expired_auth_data()`
 	_, err := p.pool.Exec(ctx, query)
 	return err
+}
+
+// Helper functions for nullable update operations
+
+// nullStringIfEmpty returns nil if the string is empty, otherwise returns the string
+func nullStringIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// nullIntIfZero returns nil if the int is zero, otherwise returns the int
+func nullIntIfZero(i int) interface{} {
+	if i == 0 {
+		return nil
+	}
+	return i
+}
+
+// nullTimeIfZero returns nil if the time is zero, otherwise returns the time
+func nullTimeIfZero(t time.Time) interface{} {
+	if t.IsZero() {
+		return nil
+	}
+	return t
 }

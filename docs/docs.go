@@ -2317,134 +2317,158 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/show/create": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new show with YouTube and Zoom integration for recurring streams",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "shows"
-                ],
-                "summary": "Create a new show",
-                "parameters": [
-                    {
-                        "description": "Show details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.CreateShowRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.CreateShowResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/show/delete": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Soft delete a show by setting its status to cancelled",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "shows"
-                ],
-                "summary": "Delete a show",
-                "parameters": [
-                    {
-                        "description": "Show ID to delete",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.DeleteShowRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.DeleteShowResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/show/info/{show_id}": {
+        "/api/v1/shows": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get detailed information about a specific show including upcoming events",
+                "description": "Get paginated list of shows with query parameters",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "shows"
                 ],
-                "summary": "Get show information",
+                "summary": "List shows (RESTful)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by show name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc/desc)",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ShowListResponseREST"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new show with simplified request format and default staff assignments",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shows"
+                ],
+                "summary": "Create new show (RESTful)",
+                "parameters": [
+                    {
+                        "description": "Show creation data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateShowRequestREST"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ShowResponseREST"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/shows/{show_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get detailed information about a specific show with user details",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shows"
+                ],
+                "summary": "Get show information (RESTful)",
                 "parameters": [
                     {
                         "type": "string",
@@ -2458,7 +2482,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.GetShowInfoResponse"
+                            "$ref": "#/definitions/models.ShowDetailResponseREST"
                         }
                     },
                     "400": {
@@ -2483,16 +2507,14 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/api/v1/show/list": {
-            "post": {
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a paginated list of shows with filtering and sorting options",
+                "description": "Update existing show details with simplified request format",
                 "consumes": [
                     "application/json"
                 ],
@@ -2502,14 +2524,22 @@ const docTemplate = `{
                 "tags": [
                     "shows"
                 ],
-                "summary": "List shows",
+                "summary": "Update show information (RESTful)",
                 "parameters": [
                     {
-                        "description": "List options",
+                        "type": "string",
+                        "description": "Show ID",
+                        "name": "show_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Show update data",
                         "name": "request",
                         "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ListShowsRequest"
+                            "$ref": "#/definitions/models.UpdateShowRequestREST"
                         }
                     }
                 ],
@@ -2517,11 +2547,83 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ListShowsResponse"
+                            "$ref": "#/definitions/models.ShowResponseREST"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Soft or hard delete a show based on force parameter",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shows"
+                ],
+                "summary": "Delete show (RESTful)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Show ID",
+                        "name": "show_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Show deletion data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteShowRequestREST"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DeleteShowResponseREST"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -3658,18 +3760,35 @@ const docTemplate = `{
                 }
             }
         },
-        "models.CreateShowRequest": {
+        "models.CreateShowRequestREST": {
             "type": "object",
             "required": [
                 "first_event_date",
-                "length_minutes",
                 "repeat_pattern",
                 "show_name",
                 "start_time",
                 "youtube_key"
             ],
             "properties": {
-                "additional_key": {
+                "default_director": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_host": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_producer": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_telegram": {
                     "type": "string"
                 },
                 "first_event_date": {
@@ -3678,11 +3797,7 @@ const docTemplate = `{
                 "length_minutes": {
                     "type": "integer",
                     "maximum": 1440,
-                    "minimum": 1
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "minimum": 15
                 },
                 "repeat_pattern": {
                     "$ref": "#/definitions/models.RepeatPattern"
@@ -3701,28 +3816,8 @@ const docTemplate = `{
                 "youtube_key": {
                     "type": "string"
                 },
-                "zoom_meeting_id": {
-                    "type": "string"
-                },
                 "zoom_meeting_url": {
                     "type": "string"
-                },
-                "zoom_passcode": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.CreateShowResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.Show"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
                 }
             }
         },
@@ -3927,22 +4022,19 @@ const docTemplate = `{
                 }
             }
         },
-        "models.DeleteShowRequest": {
+        "models.DeleteShowRequestREST": {
             "type": "object",
-            "required": [
-                "show_id"
-            ],
             "properties": {
-                "show_id": {
-                    "type": "string"
+                "force": {
+                    "type": "boolean"
                 }
             }
         },
-        "models.DeleteShowResponse": {
+        "models.DeleteShowResponseREST": {
             "type": "object",
             "properties": {
-                "error": {
-                    "type": "string"
+                "data": {
+                    "$ref": "#/definitions/models.ShowDeleteDataREST"
                 },
                 "message": {
                     "type": "string"
@@ -4379,20 +4471,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.GetShowInfoResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.ShowInfoData"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
         "models.GetUserInfoResponse": {
             "type": "object",
             "properties": {
@@ -4772,79 +4850,6 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
-                }
-            }
-        },
-        "models.ListShowsData": {
-            "type": "object",
-            "properties": {
-                "pagination": {
-                    "$ref": "#/definitions/models.PaginationResponse"
-                },
-                "shows": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ShowListItem"
-                    }
-                }
-            }
-        },
-        "models.ListShowsFilters": {
-            "type": "object",
-            "properties": {
-                "repeat_pattern": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.RepeatPattern"
-                    }
-                },
-                "search": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ShowStatus"
-                    }
-                }
-            }
-        },
-        "models.ListShowsRequest": {
-            "type": "object",
-            "properties": {
-                "filters": {
-                    "$ref": "#/definitions/models.ListShowsFilters"
-                },
-                "pagination": {
-                    "$ref": "#/definitions/models.PaginationOptions"
-                },
-                "sort": {
-                    "$ref": "#/definitions/models.ListShowsSortOptions"
-                }
-            }
-        },
-        "models.ListShowsResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/models.ListShowsData"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "models.ListShowsSortOptions": {
-            "type": "object",
-            "properties": {
-                "field": {
-                    "type": "string"
-                },
-                "order": {
-                    "type": "string"
                 }
             }
         },
@@ -5494,6 +5499,27 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "default_director": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_host": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_producer": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_telegram": {
+                    "type": "string"
+                },
                 "first_event_date": {
                     "type": "string"
                 },
@@ -5545,42 +5571,49 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ShowEvent": {
+        "models.ShowDeleteDataREST": {
             "type": "object",
             "properties": {
-                "date": {
+                "deleted_at": {
                     "type": "string"
                 },
-                "end_datetime": {
-                    "type": "string"
-                },
-                "start_datetime": {
+                "show_id": {
                     "type": "string"
                 }
             }
         },
-        "models.ShowInfoData": {
+        "models.ShowDetailREST": {
             "type": "object",
             "properties": {
-                "show": {
-                    "$ref": "#/definitions/models.Show"
+                "created_at": {
+                    "type": "string"
                 },
-                "upcoming_events": {
+                "default_director": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ShowEvent"
+                        "$ref": "#/definitions/models.UserSummary"
                     }
-                }
-            }
-        },
-        "models.ShowListItem": {
-            "type": "object",
-            "properties": {
-                "first_event_date": {
+                },
+                "default_host": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UserSummary"
+                    }
+                },
+                "default_producer": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UserSummary"
+                    }
+                },
+                "default_telegram": {
                     "type": "string"
                 },
-                "has_zoom_meeting": {
-                    "type": "boolean"
+                "event_count": {
+                    "type": "integer"
+                },
+                "first_event_date": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "string"
@@ -5588,14 +5621,8 @@ const docTemplate = `{
                 "length_minutes": {
                     "type": "integer"
                 },
-                "next_occurrence": {
-                    "type": "string"
-                },
-                "next_occurrences": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "next_event": {
+                    "$ref": "#/definitions/models.ShowEventSummary"
                 },
                 "repeat_pattern": {
                     "$ref": "#/definitions/models.RepeatPattern"
@@ -5611,6 +5638,114 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/models.ShowStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "youtube_key": {
+                    "type": "string"
+                },
+                "zoom_meeting_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ShowDetailResponseREST": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.ShowDetailREST"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.ShowEventSummary": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.EventStatus"
+                }
+            }
+        },
+        "models.ShowListDataREST": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "$ref": "#/definitions/models.PaginationResponse"
+                },
+                "shows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ShowListItemREST"
+                    }
+                }
+            }
+        },
+        "models.ShowListItemREST": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "default_director_count": {
+                    "type": "integer"
+                },
+                "default_host_count": {
+                    "type": "integer"
+                },
+                "default_producer_count": {
+                    "type": "integer"
+                },
+                "event_count": {
+                    "type": "integer"
+                },
+                "has_telegram": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "next_event_date": {
+                    "type": "string"
+                },
+                "repeat_pattern": {
+                    "$ref": "#/definitions/models.RepeatPattern"
+                },
+                "show_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.ShowStatus"
+                }
+            }
+        },
+        "models.ShowListResponseREST": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.ShowListDataREST"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.ShowResponseREST": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/models.Show"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
@@ -5927,6 +6062,57 @@ const docTemplate = `{
                 }
             }
         },
+        "models.UpdateShowRequestREST": {
+            "type": "object",
+            "properties": {
+                "default_director": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_host": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_producer": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default_telegram": {
+                    "type": "string"
+                },
+                "length_minutes": {
+                    "type": "integer",
+                    "maximum": 1440,
+                    "minimum": 15
+                },
+                "repeat_pattern": {
+                    "$ref": "#/definitions/models.RepeatPattern"
+                },
+                "scheduling_config": {
+                    "$ref": "#/definitions/models.SchedulingConfig"
+                },
+                "show_name": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "youtube_key": {
+                    "type": "string"
+                },
+                "zoom_meeting_url": {
+                    "type": "string"
+                }
+            }
+        },
         "models.UpdateUserRequest": {
             "type": "object",
             "properties": {
@@ -6046,6 +6232,20 @@ const docTemplate = `{
                 "UserStatusPending",
                 "UserStatusSuspended"
             ]
+        },
+        "models.UserSummary": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
         },
         "models.UserWithRoles": {
             "type": "object",

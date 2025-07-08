@@ -81,13 +81,15 @@ func NewRouter(cfg *config.Config, postHandler *handlers.PostHandler, mediaHandl
 			media.POST("/getDirect", mediaHandler.GetLinkMediaURI) // /api/v1/media/getDirect
 		}
 
-		// Show endpoints
-		show := api.Group("/show")
+
+		// RESTful Show endpoints (New)
+		showREST := api.Group("/shows")
 		{
-			show.POST("/create", showHandler.CreateShow)           // /api/v1/show/create
-			show.DELETE("/delete", showHandler.DeleteShow)         // /api/v1/show/delete
-			show.POST("/list", showHandler.ListShows)              // /api/v1/show/list
-			show.GET("/info/:show_id", showHandler.GetShowInfo)    // /api/v1/show/info/{show_id}
+			showREST.POST("", showHandler.CreateShowREST)                    // /api/v1/shows
+			showREST.GET("", showHandler.ListShowsREST)                      // /api/v1/shows
+			showREST.GET("/:show_id", showHandler.GetShowREST)               // /api/v1/shows/{show_id}
+			showREST.PUT("/:show_id", showHandler.UpdateShowREST)            // /api/v1/shows/{show_id}
+			showREST.DELETE("/:show_id", showHandler.DeleteShowREST)         // /api/v1/shows/{show_id}
 		}
 
 		// Event endpoints
